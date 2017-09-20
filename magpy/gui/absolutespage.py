@@ -33,6 +33,7 @@ class AbsolutePage(wx.Panel):
     def createControls(self):
         self.diLabel = wx.StaticText(self, label="DI files:")
         self.loadDIButton = wx.Button(self,-1,"Load DI data",size=(160,30))
+        self.loadUSGSButton = wx.Button(self,-1,"Load USGS data",size=(160,30))
         self.diTextCtrl = wx.TextCtrl(self, value="None",size=(160,40),
                           style = wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL|wx.VSCROLL)
         self.defineVarioButton = wx.Button(self,-1,"Variometer path",size=(160,30))
@@ -71,7 +72,7 @@ class AbsolutePage(wx.Panel):
         # and the logger text control (on the right):
         boxSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
         # A GridSizer will contain the other controls:
-        gridSizer = wx.FlexGridSizer(rows=10, cols=2, vgap=10, hgap=10)
+        gridSizer = wx.FlexGridSizer(rows=11, cols=2, vgap=10, hgap=10)
 
         # Prepare some reusable arguments for calling sizer.Add():
         expandOption = dict(flag=wx.EXPAND)
@@ -86,6 +87,8 @@ class AbsolutePage(wx.Panel):
                  (self.varioTextCtrl, expandOption),
                  (self.defineScalarButton, dict(flag=wx.ALIGN_CENTER)),
                  (self.scalarTextCtrl, expandOption),
+                 (self.loadUSGSButton,dict(flag=wx.ALIGN_CENTER)),
+                  emptySpace,
                   emptySpace,
                   emptySpace,
                  (self.diLabel, noOptions),
