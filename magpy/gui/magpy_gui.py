@@ -952,14 +952,14 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.onApplyBCButton, self.menu_p.str_page.applyBCButton)
         self.Bind(wx.EVT_RADIOBOX, self.onChangeComp, self.menu_p.str_page.compRadioBox)
         self.Bind(wx.EVT_RADIOBOX, self.onChangeSymbol, self.menu_p.str_page.symbolRadioBox)
-        self.Bind(wx.EVT_BUTTON, self.onFlagOutlierButton, self.menu_p.str_page.flagOutlierButton)
-        self.Bind(wx.EVT_BUTTON, self.onFlagSelectionButton, self.menu_p.str_page.flagSelectionButton)
-        self.Bind(wx.EVT_BUTTON, self.onFlagRangeButton, self.menu_p.str_page.flagRangeButton)
-        self.Bind(wx.EVT_BUTTON, self.onFlagLoadButton, self.menu_p.str_page.flagLoadButton)
-        self.Bind(wx.EVT_BUTTON, self.onFlagSaveButton, self.menu_p.str_page.flagSaveButton)
-        self.Bind(wx.EVT_BUTTON, self.onFlagDropButton, self.menu_p.str_page.flagDropButton)
-        self.Bind(wx.EVT_BUTTON, self.onFlagMinButton, self.menu_p.str_page.flagMinButton)
-        self.Bind(wx.EVT_BUTTON, self.onFlagMaxButton, self.menu_p.str_page.flagMaxButton)
+        self.Bind(wx.EVT_BUTTON, self.onFlagOutlierButton, self.menu_p.flg_page.flagOutlierButton)
+        self.Bind(wx.EVT_BUTTON, self.onFlagSelectionButton, self.menu_p.flg_page.flagSelectionButton)
+        self.Bind(wx.EVT_BUTTON, self.onFlagRangeButton, self.menu_p.flg_page.flagRangeButton)
+        self.Bind(wx.EVT_BUTTON, self.onFlagLoadButton, self.menu_p.flg_page.flagLoadButton)
+        self.Bind(wx.EVT_BUTTON, self.onFlagSaveButton, self.menu_p.flg_page.flagSaveButton)
+        self.Bind(wx.EVT_BUTTON, self.onFlagDropButton, self.menu_p.flg_page.flagDropButton)
+        self.Bind(wx.EVT_BUTTON, self.onFlagMinButton, self.menu_p.flg_page.flagMinButton)
+        self.Bind(wx.EVT_BUTTON, self.onFlagMaxButton, self.menu_p.flg_page.flagMaxButton)
 
         #        Meta Page
         # --------------------------
@@ -1133,19 +1133,19 @@ class MainFrame(wx.Frame):
         self.menu_p.str_page.selectKeysButton.Disable()    # always
         self.menu_p.str_page.extractValuesButton.Disable() # always
         self.menu_p.str_page.changePlotButton.Disable()    # always
-        self.menu_p.str_page.flagOutlierButton.Disable()   # always
-        self.menu_p.str_page.flagSelectionButton.Disable() # always
-        self.menu_p.str_page.flagRangeButton.Disable()     # always
-        self.menu_p.str_page.flagLoadButton.Disable()      # always
-        self.menu_p.str_page.flagMinButton.Disable()       # always
-        self.menu_p.str_page.flagMaxButton.Disable()       # always
-        self.menu_p.str_page.xCheckBox.Disable()           # always
-        self.menu_p.str_page.yCheckBox.Disable()           # always
-        self.menu_p.str_page.zCheckBox.Disable()           # always
-        self.menu_p.str_page.fCheckBox.Disable()           # always
-        self.menu_p.str_page.FlagIDComboBox.Disable()      # always
-        self.menu_p.str_page.flagDropButton.Disable()      # activated if annotation are present
-        self.menu_p.str_page.flagSaveButton.Disable()      # activated if annotation are present
+        self.menu_p.flg_page.flagOutlierButton.Disable()   # always
+        self.menu_p.flg_page.flagSelectionButton.Disable() # always
+        self.menu_p.flg_page.flagRangeButton.Disable()     # always
+        self.menu_p.flg_page.flagLoadButton.Disable()      # always
+        self.menu_p.flg_page.flagMinButton.Disable()       # always
+        self.menu_p.flg_page.flagMaxButton.Disable()       # always
+        self.menu_p.flg_page.xCheckBox.Disable()           # always
+        self.menu_p.flg_page.yCheckBox.Disable()           # always
+        self.menu_p.flg_page.zCheckBox.Disable()           # always
+        self.menu_p.flg_page.fCheckBox.Disable()           # always
+        self.menu_p.flg_page.flagIDComboBox.Disable()      # always
+        self.menu_p.flg_page.flagDropButton.Disable()      # activated if annotation are present
+        self.menu_p.flg_page.flagSaveButton.Disable()      # activated if annotation are present
         self.menu_p.str_page.dailyMeansButton.Disable()    # activated for DI data
         self.menu_p.str_page.applyBCButton.Disable()       # activated if DataAbsInfo is present
         self.menu_p.str_page.annotateCheckBox.Disable()    # activated if annotation are present
@@ -1360,13 +1360,13 @@ class MainFrame(wx.Frame):
         self.menu_p.str_page.selectKeysButton.Enable()    # always
         self.menu_p.str_page.extractValuesButton.Enable() # always
         self.menu_p.str_page.changePlotButton.Enable()    # always
-        self.menu_p.str_page.flagOutlierButton.Enable()   # always
-        self.menu_p.str_page.flagSelectionButton.Enable() # always
-        self.menu_p.str_page.flagRangeButton.Enable()     # always
-        self.menu_p.str_page.flagLoadButton.Enable()      # always
-        self.menu_p.str_page.flagMinButton.Enable()       # always
-        self.menu_p.str_page.flagMaxButton.Enable()       # always
-        self.menu_p.str_page.FlagIDComboBox.Enable()      # always
+        self.menu_p.flg_page.flagOutlierButton.Enable()   # always
+        self.menu_p.flg_page.flagSelectionButton.Enable() # always
+        self.menu_p.flg_page.flagRangeButton.Enable()     # always
+        self.menu_p.flg_page.flagLoadButton.Enable()      # always
+        self.menu_p.flg_page.flagMinButton.Enable()       # always
+        self.menu_p.flg_page.flagMaxButton.Enable()       # always
+        self.menu_p.flg_page.flagIDComboBox.Enable()      # always
         self.menu_p.str_page.confinexCheckBox.Enable()    # always
         self.menu_p.met_page.MetaDataButton.Enable()      # always
         self.menu_p.met_page.MetaSensorButton.Enable()    # always
@@ -1401,8 +1401,8 @@ class MainFrame(wx.Frame):
                 self.compselect = 'xyz'
 
         if len(commcol) > 0:
-            self.menu_p.str_page.flagDropButton.Enable()     # activated if annotation are present
-            self.menu_p.str_page.flagSaveButton.Enable()      # activated if annotation are present
+            self.menu_p.flg_page.flagDropButton.Enable()     # activated if annotation are present
+            self.menu_p.flg_page.flagSaveButton.Enable()      # activated if annotation are present
             self.menu_p.str_page.annotateCheckBox.Enable()    # activated if annotation are present
             if self.menu_p.str_page.annotateCheckBox.GetValue():
                 self.menu_p.str_page.annotateCheckBox.SetValue(True)
@@ -4864,7 +4864,7 @@ Suite 330, Boston, MA  02111-1307  USA"""
         mini = [teststream._get_min(key,returntime=True) for key in keys]
         flaglist = []
         comment = 'Flagged minimum'
-        flagid = self.menu_p.str_page.FlagIDComboBox.GetValue()
+        flagid = self.menu_p.flg_page.flagIDComboBox.GetValue()
         flagid = int(flagid[0])
         if flagid is 0:
             comment = ''
@@ -4901,7 +4901,7 @@ Suite 330, Boston, MA  02111-1307  USA"""
         maxi = [teststream._get_max(key,returntime=True) for key in keys]
         flaglist = []
         comment = 'Flagged maximum'
-        flagid = self.menu_p.str_page.FlagIDComboBox.GetValue()
+        flagid = self.menu_p.flg_page.flagIDComboBox.GetValue()
         flagid = int(flagid[0])
         if flagid is 0:
             comment = ''
