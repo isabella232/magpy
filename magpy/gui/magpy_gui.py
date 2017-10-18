@@ -952,6 +952,9 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.onApplyBCButton, self.menu_p.str_page.applyBCButton)
         self.Bind(wx.EVT_RADIOBOX, self.onChangeComp, self.menu_p.str_page.compRadioBox)
         self.Bind(wx.EVT_RADIOBOX, self.onChangeSymbol, self.menu_p.str_page.symbolRadioBox)
+
+        #       Flagging Page
+        # ------------------------
         self.Bind(wx.EVT_BUTTON, self.onFlagOutlierButton, self.menu_p.flg_page.flagOutlierButton)
         self.Bind(wx.EVT_BUTTON, self.onFlagSelectionButton, self.menu_p.flg_page.flagSelectionButton)
         self.Bind(wx.EVT_BUTTON, self.onFlagRangeButton, self.menu_p.flg_page.flagRangeButton)
@@ -960,6 +963,7 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.onFlagDropButton, self.menu_p.flg_page.flagDropButton)
         self.Bind(wx.EVT_BUTTON, self.onFlagMinButton, self.menu_p.flg_page.flagMinButton)
         self.Bind(wx.EVT_BUTTON, self.onFlagMaxButton, self.menu_p.flg_page.flagMaxButton)
+
 
         #        Meta Page
         # --------------------------
@@ -1133,6 +1137,15 @@ class MainFrame(wx.Frame):
         self.menu_p.str_page.selectKeysButton.Disable()    # always
         self.menu_p.str_page.extractValuesButton.Disable() # always
         self.menu_p.str_page.changePlotButton.Disable()    # always
+        self.menu_p.str_page.dailyMeansButton.Disable()    # activated for DI data
+        self.menu_p.str_page.applyBCButton.Disable()       # activated if DataAbsInfo is present
+        self.menu_p.str_page.annotateCheckBox.Disable()    # activated if annotation are present
+        self.menu_p.str_page.errorBarsCheckBox.Disable()   # activated delta columns are present and not DI file
+        self.menu_p.str_page.confinexCheckBox.Disable()    # always
+        self.menu_p.str_page.compRadioBox.Disable()        # activated if xyz,hdz or idf
+        self.menu_p.str_page.symbolRadioBox.Disable()      # activated if less then 2000 points, active if DI data
+
+        # Flagging
         self.menu_p.flg_page.flagOutlierButton.Disable()   # always
         self.menu_p.flg_page.flagSelectionButton.Disable() # always
         self.menu_p.flg_page.flagRangeButton.Disable()     # always
@@ -1146,13 +1159,6 @@ class MainFrame(wx.Frame):
         self.menu_p.flg_page.flagIDComboBox.Disable()      # always
         self.menu_p.flg_page.flagDropButton.Disable()      # activated if annotation are present
         self.menu_p.flg_page.flagSaveButton.Disable()      # activated if annotation are present
-        self.menu_p.str_page.dailyMeansButton.Disable()    # activated for DI data
-        self.menu_p.str_page.applyBCButton.Disable()       # activated if DataAbsInfo is present
-        self.menu_p.str_page.annotateCheckBox.Disable()    # activated if annotation are present
-        self.menu_p.str_page.errorBarsCheckBox.Disable()   # activated delta columns are present and not DI file
-        self.menu_p.str_page.confinexCheckBox.Disable()    # always
-        self.menu_p.str_page.compRadioBox.Disable()        # activated if xyz,hdz or idf
-        self.menu_p.str_page.symbolRadioBox.Disable()      # activated if less then 2000 points, active if DI data
 
         # Meta
         self.menu_p.met_page.getDBButton.Disable()         # activated when DB is connected
@@ -1360,6 +1366,13 @@ class MainFrame(wx.Frame):
         self.menu_p.str_page.selectKeysButton.Enable()    # always
         self.menu_p.str_page.extractValuesButton.Enable() # always
         self.menu_p.str_page.changePlotButton.Enable()    # always
+        self.menu_p.str_page.confinexCheckBox.Enable()    # always
+        self.menu_p.met_page.MetaDataButton.Enable()      # always
+        self.menu_p.met_page.MetaSensorButton.Enable()    # always
+        self.menu_p.met_page.MetaStationButton.Enable()   # always
+
+        # ----------------------------------------
+        # flagging page
         self.menu_p.flg_page.flagOutlierButton.Enable()   # always
         self.menu_p.flg_page.flagSelectionButton.Enable() # always
         self.menu_p.flg_page.flagRangeButton.Enable()     # always
@@ -1367,10 +1380,6 @@ class MainFrame(wx.Frame):
         self.menu_p.flg_page.flagMinButton.Enable()       # always
         self.menu_p.flg_page.flagMaxButton.Enable()       # always
         self.menu_p.flg_page.flagIDComboBox.Enable()      # always
-        self.menu_p.str_page.confinexCheckBox.Enable()    # always
-        self.menu_p.met_page.MetaDataButton.Enable()      # always
-        self.menu_p.met_page.MetaSensorButton.Enable()    # always
-        self.menu_p.met_page.MetaStationButton.Enable()   # always
 
         # ----------------------------------------
         # analysis page
@@ -1641,7 +1650,7 @@ class MainFrame(wx.Frame):
         self.plot_p.guiPlot([self.plotstream],[keylist], plotopt=self.plotopt)
         boxes = ['x','y','z','f']
         for box in boxes:
-            checkbox = getattr(self.menu_p.str_page, box + 'CheckBox')
+            checkbox = getattr(self.menu_p.flg_page, box + 'CheckBox')
             if box in self.shownkeylist:
                 checkbox.Enable()
                 colname = self.plotstream.header.get('col-'+box, '')
@@ -1680,7 +1689,7 @@ class MainFrame(wx.Frame):
             self.ExportData.Enable(True)
         boxes = ['x','y','z','f']
         for box in boxes:
-            checkbox = getattr(self.menu_p.str_page, box + 'CheckBox')
+            checkbox = getattr(self.menu_p.flg_page, box + 'CheckBox')
             if box in self.shownkeylist:
                 checkbox.Enable()
                 colname = self.plotstream.header.get('col-'+box, '')
@@ -4870,7 +4879,7 @@ Suite 330, Boston, MA  02111-1307  USA"""
             comment = ''
         for idx,me in enumerate(mini):
             if keys[idx] is not 'df':
-                checkbox = getattr(self.menu_p.str_page, keys[idx] + 'CheckBox')
+                checkbox = getattr(self.menu_p.flg_page, keys[idx] + 'CheckBox')
                 if checkbox.IsChecked():
                     starttime = num2date(me[1] - xtol)
                     endtime = num2date(me[1] + xtol)
@@ -4907,7 +4916,7 @@ Suite 330, Boston, MA  02111-1307  USA"""
             comment = ''
         for idx,me in enumerate(maxi):
             if keys[idx] is not 'df':
-                checkbox = getattr(self.menu_p.str_page, keys[idx] + 'CheckBox')
+                checkbox = getattr(self.menu_p.flg_page, keys[idx] + 'CheckBox')
                 if checkbox.IsChecked():
                     starttime = num2date(me[1] - xtol)
                     endtime = num2date(me[1] + xtol)
