@@ -26,6 +26,7 @@ from magpy.transfer import *
 from magpy.database import *
 from magpy.version import __version__
 from magpy.gui.streampage import *
+from magpy.gui.flaggingpage import *
 from magpy.gui.metapage import *
 from magpy.gui.dialogclasses import *
 from magpy.gui.absolutespage import *
@@ -751,12 +752,14 @@ class MenuPanel(scrolled.ScrolledPanel):
         # Create pages on MenuPanel
         nb = wx.Notebook(self,-1)
         self.str_page = StreamPage(nb)
+        self.flg_page = FlaggingPage(nb)
         self.met_page = MetaPage(nb)
         self.ana_page = AnalysisPage(nb)
         self.abs_page = AbsolutePage(nb)
         self.rep_page = ReportPage(nb)
         self.com_page = MonitorPage(nb)
         nb.AddPage(self.str_page, "Stream")
+        nb.AddPage(self.flg_page, "Flagging")
         nb.AddPage(self.met_page, "Meta")
         nb.AddPage(self.ana_page, "Analysis")
         nb.AddPage(self.abs_page, "DI")
@@ -948,14 +951,18 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.onApplyBCButton, self.menu_p.str_page.applyBCButton)
         self.Bind(wx.EVT_RADIOBOX, self.onChangeComp, self.menu_p.str_page.compRadioBox)
         self.Bind(wx.EVT_RADIOBOX, self.onChangeSymbol, self.menu_p.str_page.symbolRadioBox)
-        self.Bind(wx.EVT_BUTTON, self.onFlagOutlierButton, self.menu_p.str_page.flagOutlierButton)
-        self.Bind(wx.EVT_BUTTON, self.onFlagSelectionButton, self.menu_p.str_page.flagSelectionButton)
-        self.Bind(wx.EVT_BUTTON, self.onFlagRangeButton, self.menu_p.str_page.flagRangeButton)
-        self.Bind(wx.EVT_BUTTON, self.onFlagLoadButton, self.menu_p.str_page.flagLoadButton)
-        self.Bind(wx.EVT_BUTTON, self.onFlagSaveButton, self.menu_p.str_page.flagSaveButton)
-        self.Bind(wx.EVT_BUTTON, self.onFlagDropButton, self.menu_p.str_page.flagDropButton)
-        self.Bind(wx.EVT_BUTTON, self.onFlagMinButton, self.menu_p.str_page.flagMinButton)
-        self.Bind(wx.EVT_BUTTON, self.onFlagMaxButton, self.menu_p.str_page.flagMaxButton)
+
+        #       Flagging Page
+        # ------------------------
+        self.Bind(wx.EVT_BUTTON, self.onFlagOutlierButton, self.menu_p.flg_page.flagOutlierButton)
+        self.Bind(wx.EVT_BUTTON, self.onFlagSelectionButton, self.menu_p.flg_page.flagSelectionButton)
+        self.Bind(wx.EVT_BUTTON, self.onFlagRangeButton, self.menu_p.flg_page.flagRangeButton)
+        self.Bind(wx.EVT_BUTTON, self.onFlagLoadButton, self.menu_p.flg_page.flagLoadButton)
+        self.Bind(wx.EVT_BUTTON, self.onFlagSaveButton, self.menu_p.flg_page.flagSaveButton)
+        self.Bind(wx.EVT_BUTTON, self.onFlagDropButton, self.menu_p.flg_page.flagDropButton)
+        self.Bind(wx.EVT_BUTTON, self.onFlagMinButton, self.menu_p.flg_page.flagMinButton)
+        self.Bind(wx.EVT_BUTTON, self.onFlagMaxButton, self.menu_p.flg_page.flagMaxButton)
+
 
         #        Meta Page
         # --------------------------
@@ -1130,19 +1137,6 @@ class MainFrame(wx.Frame):
         self.menu_p.str_page.selectKeysButton.Disable()    # always
         self.menu_p.str_page.extractValuesButton.Disable() # always
         self.menu_p.str_page.changePlotButton.Disable()    # always
-        self.menu_p.str_page.flagOutlierButton.Disable()   # always
-        self.menu_p.str_page.flagSelectionButton.Disable() # always
-        self.menu_p.str_page.flagRangeButton.Disable()     # always
-        self.menu_p.str_page.flagLoadButton.Disable()      # always
-        self.menu_p.str_page.flagMinButton.Disable()       # always
-        self.menu_p.str_page.flagMaxButton.Disable()       # always
-        self.menu_p.str_page.xCheckBox.Disable()           # always
-        self.menu_p.str_page.yCheckBox.Disable()           # always
-        self.menu_p.str_page.zCheckBox.Disable()           # always
-        self.menu_p.str_page.fCheckBox.Disable()           # always
-        self.menu_p.str_page.FlagIDComboBox.Disable()      # always
-        self.menu_p.str_page.flagDropButton.Disable()      # activated if annotation are present
-        self.menu_p.str_page.flagSaveButton.Disable()      # activated if annotation are present
         self.menu_p.str_page.dailyMeansButton.Disable()    # activated for DI data
         self.menu_p.str_page.applyBCButton.Disable()       # activated if DataAbsInfo is present
         self.menu_p.str_page.annotateCheckBox.Disable()    # activated if annotation are present
@@ -1150,6 +1144,21 @@ class MainFrame(wx.Frame):
         self.menu_p.str_page.confinexCheckBox.Disable()    # always
         self.menu_p.str_page.compRadioBox.Disable()        # activated if xyz,hdz or idf
         self.menu_p.str_page.symbolRadioBox.Disable()      # activated if less then 2000 points, active if DI data
+
+        # Flagging
+        self.menu_p.flg_page.flagOutlierButton.Disable()   # always
+        self.menu_p.flg_page.flagSelectionButton.Disable() # always
+        self.menu_p.flg_page.flagRangeButton.Disable()     # always
+        self.menu_p.flg_page.flagLoadButton.Disable()      # always
+        self.menu_p.flg_page.flagMinButton.Disable()       # always
+        self.menu_p.flg_page.flagMaxButton.Disable()       # always
+        self.menu_p.flg_page.xCheckBox.Disable()           # always
+        self.menu_p.flg_page.yCheckBox.Disable()           # always
+        self.menu_p.flg_page.zCheckBox.Disable()           # always
+        self.menu_p.flg_page.fCheckBox.Disable()           # always
+        self.menu_p.flg_page.flagIDComboBox.Disable()      # always
+        self.menu_p.flg_page.flagDropButton.Disable()      # activated if annotation are present
+        self.menu_p.flg_page.flagSaveButton.Disable()      # activated if annotation are present
 
         # Meta
         self.menu_p.met_page.getDBButton.Disable()         # activated when DB is connected
@@ -1359,17 +1368,20 @@ class MainFrame(wx.Frame):
         self.menu_p.str_page.selectKeysButton.Enable()    # always
         self.menu_p.str_page.extractValuesButton.Enable() # always
         self.menu_p.str_page.changePlotButton.Enable()    # always
-        self.menu_p.str_page.flagOutlierButton.Enable()   # always
-        self.menu_p.str_page.flagSelectionButton.Enable() # always
-        self.menu_p.str_page.flagRangeButton.Enable()     # always
-        self.menu_p.str_page.flagLoadButton.Enable()      # always
-        self.menu_p.str_page.flagMinButton.Enable()       # always
-        self.menu_p.str_page.flagMaxButton.Enable()       # always
-        self.menu_p.str_page.FlagIDComboBox.Enable()      # always
         self.menu_p.str_page.confinexCheckBox.Enable()    # always
         self.menu_p.met_page.MetaDataButton.Enable()      # always
         self.menu_p.met_page.MetaSensorButton.Enable()    # always
         self.menu_p.met_page.MetaStationButton.Enable()   # always
+
+        # ----------------------------------------
+        # flagging page
+        self.menu_p.flg_page.flagOutlierButton.Enable()   # always
+        self.menu_p.flg_page.flagSelectionButton.Enable() # always
+        self.menu_p.flg_page.flagRangeButton.Enable()     # always
+        self.menu_p.flg_page.flagLoadButton.Enable()      # always
+        self.menu_p.flg_page.flagMinButton.Enable()       # always
+        self.menu_p.flg_page.flagMaxButton.Enable()       # always
+        self.menu_p.flg_page.flagIDComboBox.Enable()      # always
 
         # ----------------------------------------
         # analysis page
@@ -1404,8 +1416,8 @@ class MainFrame(wx.Frame):
                 self.compselect = 'xyz'
 
         if len(commcol) > 0:
-            self.menu_p.str_page.flagDropButton.Enable()     # activated if annotation are present
-            self.menu_p.str_page.flagSaveButton.Enable()      # activated if annotation are present
+            self.menu_p.flg_page.flagDropButton.Enable()     # activated if annotation are present
+            self.menu_p.flg_page.flagSaveButton.Enable()      # activated if annotation are present
             self.menu_p.str_page.annotateCheckBox.Enable()    # activated if annotation are present
             if self.menu_p.str_page.annotateCheckBox.GetValue():
                 self.menu_p.str_page.annotateCheckBox.SetValue(True)
@@ -1644,7 +1656,7 @@ class MainFrame(wx.Frame):
         self.plot_p.guiPlot([self.plotstream],[keylist], plotopt=self.plotopt)
         boxes = ['x','y','z','f']
         for box in boxes:
-            checkbox = getattr(self.menu_p.str_page, box + 'CheckBox')
+            checkbox = getattr(self.menu_p.flg_page, box + 'CheckBox')
             if box in self.shownkeylist:
                 checkbox.Enable()
                 colname = self.plotstream.header.get('col-'+box, '')
@@ -1683,7 +1695,7 @@ class MainFrame(wx.Frame):
             self.ExportData.Enable(True)
         boxes = ['x','y','z','f']
         for box in boxes:
-            checkbox = getattr(self.menu_p.str_page, box + 'CheckBox')
+            checkbox = getattr(self.menu_p.flg_page, box + 'CheckBox')
             if box in self.shownkeylist:
                 checkbox.Enable()
                 colname = self.plotstream.header.get('col-'+box, '')
@@ -4870,13 +4882,13 @@ Suite 330, Boston, MA  02111-1307  USA"""
         mini = [teststream._get_min(key,returntime=True) for key in keys]
         flaglist = []
         comment = 'Flagged minimum'
-        flagid = self.menu_p.str_page.FlagIDComboBox.GetValue()
+        flagid = self.menu_p.flg_page.flagIDComboBox.GetValue()
         flagid = int(flagid[0])
         if flagid is 0:
             comment = ''
         for idx,me in enumerate(mini):
             if keys[idx] is not 'df':
-                checkbox = getattr(self.menu_p.str_page, keys[idx] + 'CheckBox')
+                checkbox = getattr(self.menu_p.flg_page, keys[idx] + 'CheckBox')
                 if checkbox.IsChecked():
                     starttime = num2date(me[1] - xtol)
                     endtime = num2date(me[1] + xtol)
@@ -4907,13 +4919,13 @@ Suite 330, Boston, MA  02111-1307  USA"""
         maxi = [teststream._get_max(key,returntime=True) for key in keys]
         flaglist = []
         comment = 'Flagged maximum'
-        flagid = self.menu_p.str_page.FlagIDComboBox.GetValue()
+        flagid = self.menu_p.flg_page.flagIDComboBox.GetValue()
         flagid = int(flagid[0])
         if flagid is 0:
             comment = ''
         for idx,me in enumerate(maxi):
             if keys[idx] is not 'df':
-                checkbox = getattr(self.menu_p.str_page, keys[idx] + 'CheckBox')
+                checkbox = getattr(self.menu_p.flg_page, keys[idx] + 'CheckBox')
                 if checkbox.IsChecked():
                     starttime = num2date(me[1] - xtol)
                     endtime = num2date(me[1] + xtol)
