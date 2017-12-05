@@ -2350,6 +2350,128 @@ class LoadDIDialog(wx.Dialog):
         dlg.Destroy()
         self.Close(True)
 
+class LoadUSGSDialog(wx.Dialog):
+    """
+    Dialog for Stream panel
+    Dialog for loading USGS absolutes data.
+    """
+
+    def __init__(self, parent, title, stream):
+        super(LoadUSGSDialog, self).__init__(parent=parent,
+            title=title, size=(600, 600))
+        self.stream = stream
+        self.urls = []
+        self.createControls()
+        self.doLayout()
+        self.bindControls()
+
+    # Widgets
+    def createControls(self):
+        dateinfo = ('Specify a date range of absolutes data to be obtain from the'
+                ' USGS absolutes web service. The start and end dates should'
+                ' encompass the plotted data. Note: the default start and end'
+                ' dates correspond to thhe beginning and end of the plotted'
+                ' data.')
+        extension_options = ['0 days', '1 day', '2 days', '3 days', '4 days',
+                '5 days', '6 days', '1 week', '2 weeks',  '3 weeks',
+                '4 weeks', '8 weeks']
+        extinfo = ('Extending the beginning and end of the time range will ensure'
+                ' that the scalar and variometer data is covered by the available'
+                ' baseline data. (3 days recommended)')
+        starttime = self.stream.ndarray[KEYLIST.index('time')][0]
+        endtime = self.stream.ndarray[KEYLIST.index('time')][-1]
+        starttime = num2date(starttime)
+        endtime = num2date(endtime)
+        start = wx.DateTimeFromTimeT(time.mktime(starttime.timetuple()))
+        end = wx.DateTimeFromTimeT(time.mktime(endtime.timetuple()))
+        self.starttime = starttime
+        self.endtime = endtime
+        self.dateInfoText = wx.StaticText(self,-1,dateinfo,size=(500,65))
+        self.startText = wx.StaticText(self,-1,"Start Date:",size=(500,15))
+        self.startDatePicker = wx.DatePickerCtrl(self, dt=start,size=(500,25))
+        self.endText = wx.StaticText(self,-1,"End Date:",size=(500,15))
+        self.endDatePicker = wx.DatePickerCtrl(self, dt=end,size=(500,25))
+        self.extensionText = wx.StaticText(self,-1,"Extension amount:",size=(500,15))
+        self.extInfoText = wx.StaticText(self,-1,extinfo,size=(500,35))
+        self.extensionComboBox = wx.Choice(self, choices=extension_options,
+            style=wx.CB_READONLY,size=(500,-1))
+        self.analyzeCheckBox = wx.CheckBox(self, label='Run Analysis Automatically',size=(500,25))
+        self.closeButton = wx.Button(self, wx.ID_CANCEL, label='Cancel',size=(500,25))
+        self.okButton = wx.Button(self, wx.ID_OK, label='Ok',size=(500,25))
+        self.analyzeCheckBox.SetValue(True)
+
+    def doLayout(self):
+        # A horizontal BoxSizer will contain the GridSizer (on the left)
+        # and the logger text control (on the right):
+        boxSizer = wx.BoxSizer(orient=wx.HORIZONTAL)
+
+        # Prepare some reusable arguments for calling sizer.Add():
+        expandOption = dict(flag=wx.EXPAND)
+        noOptions = dict()
+        emptySpace = ((0, 0), noOptions)
+
+        # Add the controls to the sizers:
+        controls = [(self.dateInfoText, noOptions),
+                (self.startText, noOptions),
+                (self.startDatePicker, dict(flag=wx.ALIGN_CENTER)),
+                (self.endText, noOptions),
+                (self.endDatePicker, dict(flag=wx.ALIGN_CENTER)),
+                emptySpace,
+                emptySpace,
+                (self.extInfoText, noOptions),
+                (self.extensionText, noOptions),
+                (self.extensionComboBox,  dict(flag=wx.ALIGN_CENTER)),
+                (self.analyzeCheckBox, dict(flag=wx.ALIGN_CENTER)),
+                emptySpace,
+                emptySpace,
+                (self.okButton, dict(flag=wx.ALIGN_CENTER)),
+                (self.closeButton, dict(flag=wx.ALIGN_CENTER))]
+
+        # A GridSizer will contain the other controls:
+        cols = 1
+        rows = int(np.ceil(len(controls)/float(cols)))
+        gridSizer = wx.FlexGridSizer(rows=rows, cols=cols, vgap=10, hgap=10)
+
+        for control, options in controls:
+            gridSizer.Add(control, **options)
+
+        for control, options in \
+                [(gridSizer, dict(border=5, flag=wx.ALL))]:
+            boxSizer.Add(control, **options)
+
+        self.SetSizerAndFit(boxSizer)
+
+    def bindControls(self):
+        self.extensionComboBox.Bind(wx.EVT_CHOICE, self.onExtend)
+        self.startDatePicker.Bind(wx.EVT_DATE_CHANGED, self.onChangeDate)
+        self.endDatePicker.Bind(wx.EVT_DATE_CHANGED, self.onChangeDate)
+
+    def onChangeDate(self, e):
+        starttime = self.startDatePicker.GetValue()
+        self.starttime = datetime.fromtimestamp(starttime.GetTicks())
+        endtime = self.endDatePicker.GetValue()
+        self.endtime = datetime.fromtimestamp(endtime.GetTicks())
+
+    def onExtend(self, e):
+        startvalue = self.startDatePicker.GetValue()
+        starttime = datetime.fromtimestamp(startvalue.GetTicks())
+        endvalue = self.endDatePicker.GetValue()
+        endtime = datetime.fromtimestamp(endvalue.GetTicks())
+        extension = self.extensionComboBox.GetString(self.extensionComboBox.GetSelection())
+        dt = extension[0]
+        dttype = extension[2]
+        if dttype == 'd':
+            dt = int(dt)
+        if dttype == 'w':
+            dt = int(dt) * 7
+        starttime = starttime - timedelta(days = dt)
+        endtime = endtime + timedelta(days = dt)
+        start = wx.DateTimeFromTimeT(time.mktime(starttime.timetuple()))
+        end = wx.DateTimeFromTimeT(time.mktime(endtime.timetuple()))
+        self.startDatePicker.SetValue(start)
+        self.endDatePicker.SetValue(end)
+        self.starttime = starttime
+        self.endtime = endtime
 
 class DefineVarioDialog(wx.Dialog):
     """

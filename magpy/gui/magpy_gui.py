@@ -40,7 +40,6 @@ import threading
 
 import wx.py
 
-
 def saveobj(obj, filename):
     with open(filename, 'wb') as f:
         pickle.dump(obj,f,pickle.HIGHEST_PROTOCOL)
@@ -321,7 +320,7 @@ class PlotPanel(scrolled.ScrolledPanel):
         PARAMETERS:
             kwargs:  - all plot args
         """
-        # moved to MARTAS 
+        # moved to MARTAS
         pass
 
 
@@ -995,6 +994,7 @@ class MainFrame(wx.Frame):
         #        DI Page
         # --------------------------
         self.Bind(wx.EVT_BUTTON, self.onLoadDI, self.menu_p.abs_page.loadDIButton)
+        self.Bind(wx.EVT_BUTTON, self.onLoadUSGSBaselines, self.menu_p.abs_page.loadUSGSButton)
         self.Bind(wx.EVT_BUTTON, self.onDefineVario, self.menu_p.abs_page.defineVarioButton)
         self.Bind(wx.EVT_BUTTON, self.onDefineScalar, self.menu_p.abs_page.defineScalarButton)
         self.Bind(wx.EVT_BUTTON, self.onDIAnalyze, self.menu_p.abs_page.AnalyzeButton)
@@ -1164,6 +1164,7 @@ class MainFrame(wx.Frame):
         # DI
         self.menu_p.abs_page.AnalyzeButton.Disable()       # activate if DI data is present i.e. diTextCtrl contains data
         self.menu_p.abs_page.loadDIButton.Enable()         # remain enabled
+        self.menu_p.abs_page.loadUSGSButton.Enable()       # remain enabled
         self.menu_p.abs_page.defineVarioButton.Enable()    # remain enabled
         self.menu_p.abs_page.defineScalarButton.Enable()   # remain enabled
         if PLATFORM.startswith('linux'):
@@ -1281,6 +1282,7 @@ class MainFrame(wx.Frame):
         # Essential header info
         comps = stream.header.get('DataComponents','')[:3]
         sensorid = stream.header.get('SensorID','')
+        stationid = stream.header.get('StationID', '')
         dataid = self.plotstream.header.get('DataID','')
         formattype = self.plotstream.header.get('DataFormat','')
         absinfo = self.plotstream.header.get('DataAbsInfo',None)
@@ -1313,7 +1315,7 @@ class MainFrame(wx.Frame):
             basedict = {'startdate':mintime,'enddate':maxtime, 'filename':filename, 'streamidx':len(self.streamlist)-1}
             self.baselinedictlst.append(basedict)
 
-        def checkbaseline(baselinedictlst, sensorid, mintime, maxtime):
+        def checkbaseline(baselinedictlst, sensorid, mintime, maxtime, stationid=None):
             """
               DESCRIPTION:
                 check whether valid baseline info is existing
@@ -1382,6 +1384,10 @@ class MainFrame(wx.Frame):
         self.menu_p.ana_page.powerButton.Enable()         # always
         self.menu_p.ana_page.spectrumButton.Enable()      # always
 
+        # ----------------------------------------
+        # absolutes page
+        self.menu_p.abs_page.loadUSGSButton.Enable()      # always
+
         # Selective fields
         # ----------------------------------------
         #print ("COMPONENTS", comps)
@@ -1425,9 +1431,9 @@ class MainFrame(wx.Frame):
             self.menu_p.ana_page.activityButton.Enable()      # activate if vector appears to be present
             if 'f' in keys and not 'df' in keys:
                 self.menu_p.ana_page.deltafButton.Enable()    # activate if full vector present
-            if not formattype == 'MagPyDI':
+            if formattype == 'MagPyDI':
                 #print ("Checking baseline info")
-                self.baselineidxlst = checkbaseline(self.baselinedictlst, sensorid, mintime, maxtime)
+                self.baselineidxlst = checkbaseline(self.baselinedictlst, sensorid, mintime, maxtime, stationid)
                 if len(self.baselineidxlst) > 0:
                     self.menu_p.ana_page.baselineButton.Enable()  # activate if baselinedata is existing
 
@@ -2360,19 +2366,22 @@ Suite 330, Boston, MA  02111-1307  USA"""
             time = datetime.strftime(num2date(time),"%Y-%m-%d %H:%M:%S %Z")
         except:
             time = num2date(time)
-        for elem in self.shownkeylist:
-            ul = np.nanmax(self.plotstream.ndarray[KEYLIST.index(elem)])
-            ll = np.nanmin(self.plotstream.ndarray[KEYLIST.index(elem)])
-            if ll < pickY < ul:
-                possible_key += elem
-                possible_val += [self.plotstream.ndarray[KEYLIST.index(elem)][idx]]
-        idy = (np.abs(possible_val - pickY)).argmin()
-        key = possible_key[idy]
-        val = possible_val[idy]
-        colname = self.plotstream.header.get('col-'+key, '')
-        if not colname == '':
-            key = colname
-        self.changeStatusbar("time: " + str(time) + "  |  " + key + " data value: " + str(val))
+        try:
+            for elem in self.shownkeylist:
+                ul = np.nanmax(self.plotstream.ndarray[KEYLIST.index(elem)])
+                ll = np.nanmin(self.plotstream.ndarray[KEYLIST.index(elem)])
+                if ll < pickY < ul:
+                    possible_key += elem
+                    possible_val += [self.plotstream.ndarray[KEYLIST.index(elem)][idx]]
+            idy = (np.abs(possible_val - pickY)).argmin()
+            key = possible_key[idy]
+            val = possible_val[idy]
+            colname = self.plotstream.header.get('col-'+key, '')
+            if not colname == '':
+                key = colname
+            self.changeStatusbar("time: " + str(time) + "  |  " + key + " data value: " + str(val))
+        except:
+            self.changeStatusbar("time: " + str(time) + "  |  ? data value: ?")
 
     def OnCheckOpenLog(self, event):
         """
@@ -4041,7 +4050,7 @@ Suite 330, Boston, MA  02111-1307  USA"""
             fitfunc = self.options.get('fitfunction','spline')
             if fitfunc.startswith('poly'):
                 fitfunc = 'poly'
-            baselinefunc = self.plotstream.baseline(absstream,fitfunc=self.options.get('fitfunction','spline'), knotstep=float(self.options.get('fitknotstep','0.3')), fitdegree=int(self.options.get('fitdegree','5')))
+            baselinefunc = self.plotstream.baseline(absstream,fitfunc=fitfunc, knotstep=float(self.options.get('fitknotstep','0.3')), fitdegree=int(self.options.get('fitdegree','5')))
             #keys = self.shownkeylist
             self.menu_p.rep_page.logMsg('- baseline adoption performed using DI data from {}. Parameters: function={}, knotsteps(spline)={}, degree(polynomial)={}'.format(basedict['filename'],self.options.get('fitfunction',''),self.options.get('fitknotstep',''),self.options.get('fitdegree','')))
             # add new stream, with baselinecorr
@@ -4051,7 +4060,7 @@ Suite 330, Boston, MA  02111-1307  USA"""
                         "Adopted baseline", wx.OK|wx.ICON_INFORMATION)
             dlg.ShowModal()
             dlg.Destroy()
-            
+
             self.ActivateControls(self.plotstream)
             self.OnPlot(self.plotstream,self.shownkeylist)
             self.changeStatusbar("BC function available - Ready")
@@ -5114,6 +5123,66 @@ Suite 330, Boston, MA  02111-1307  USA"""
             self.menu_p.abs_page.AnalyzeButton.Enable()
         dlg.Destroy()
 
+    def onLoadUSGSBaselines(self,event):
+        di_db = []
+        # remove defaults
+        dlg = DISetParameterDialog(None, title='Set Parameter')
+        dlg.expDTextCtrl.SetValue('')
+        dlg.azimuthTextCtrl.SetValue('')
+        dlg.pierTextCtrl.SetValue('')
+        dlg.alphaTextCtrl.SetValue('')
+        dlg.deltaFTextCtrl.SetValue('')
+        self.options['diexpD'] = dlg.expDTextCtrl.GetValue()
+        self.options['diazimuth'] = dlg.azimuthTextCtrl.GetValue()
+        self.options['dipier'] = dlg.pierTextCtrl.GetValue()
+        self.options['dialpha'] = dlg.alphaTextCtrl.GetValue()
+        self.options['dideltaF'] = dlg.deltaFTextCtrl.GetValue()
+        self.options['diexpI']=''
+        dlg.Destroy()
+        dlg = LoadUSGSDialog(None, title='Get USGS data', stream=self.plotstream)
+        if dlg.ShowModal() == wx.ID_OK:
+            starttime = dlg.starttime
+            endtime = dlg.endtime
+            di_db = self.getUrls(starttime, endtime)
+            if endtime >= starttime:
+                self.menu_p.rep_page.logMsg("- loaded DI data")
+                try:
+                    self.menu_p.abs_page.diTextCtrl.SetValue('  '.join(di_db))
+                except:
+                    self.menu_p.abs_page.diTextCtrl.SetValue(di_db[0])
+                self.dipathlist = di_db
+                self.options['dipathlist'] = di_db
+                vario_scalar = self.menu_p.str_page.pathTextCtrl.GetValue()
+                self.menu_p.abs_page.varioTextCtrl.SetValue(vario_scalar)
+                self.options['divariopath'] = vario_scalar
+                self.menu_p.abs_page.scalarTextCtrl.SetValue(vario_scalar)
+                self.options['discalarpath'] = vario_scalar
+                self.menu_p.abs_page.AnalyzeButton.Enable()
+                self.options['usgsdata'] = True
+                if dlg.analyzeCheckBox.IsChecked():
+                    self.onDIAnalyze()
+            else:
+                dlg = wx.MessageDialog(self, "Could not load data!\n"
+                            "Entered dates are out of order.\n"
+                            "Reverting to original dates.\n",
+                            "LoadUSGSData", wx.OK|wx.ICON_INFORMATION)
+                dlg.ShowModal()
+                dlg.Destroy()
+
+    def getUrls(self, starttime, endtime):
+        urls = []
+        obsid = self.plotstream.header.get('StationID', '')
+        # Dates from pickers
+        base = 'https://geomag.usgs.gov/baselines/observation.json.php?'
+        time = starttime
+        while time < endtime:
+            start = time.strftime('%Y-%m-%d')
+            time = time + timedelta(days=1)
+            end = time.strftime('%Y-%m-%d')
+            url = base + 'observatory=' + obsid + '&starttime=' + \
+                start + '&endtime=' + end + '&includemeasurements=true'
+            urls += [url]
+        return urls
 
     def onDefineVario(self,event):
         """
@@ -5149,7 +5218,7 @@ Suite 330, Boston, MA  02111-1307  USA"""
             self.options['discalarpath'] = os.path.join(path,'*')
         dialog.Destroy()
 
-    def onDIAnalyze(self,event):
+    def onDIAnalyze(self,event=None):
         """
         open dialog to load DI data
         """
@@ -5159,6 +5228,7 @@ Suite 330, Boston, MA  02111-1307  USA"""
         stationid= self.options.get('stationid','')
         abstype= self.options.get('ditype','')
         azimuth= self.options.get('diazimuth','')
+        usgsdata= self.options.get('usgsdata',False)
         try:
             expD= float(self.options.get('diexpD','0.0'))
         except:
@@ -5187,7 +5257,6 @@ Suite 330, Boston, MA  02111-1307  USA"""
             deltaI= float(self.options.get('dideltaI','0.0'))
         except:
             deltaI = 0.0
-
         if len(self.dipathlist) > 0:
             self.changeStatusbar("Processing DI data ... please be patient")
             #absstream = absoluteAnalysis(self.dipathlist,self.divariopath,self.discalarpath, expD=self.diexpD,expI=self.diexpI,diid=self.diid,stationid=self.stationid,abstype=self.ditype, azimuth=self.diazimuth,pier=self.dipier,alpha=self.dialpha,deltaF=self.dideltaF, dbadd=self.didbadd)
@@ -5196,12 +5265,18 @@ Suite 330, Boston, MA  02111-1307  USA"""
             sys.stdout=redir
 
             # TODO include deltaD, deltaI, beta into the absoluteAnalysisCall
-            if not azimuth == '':
-                azimuth = float(azimuth)
-                absstream = absoluteAnalysis(self.dipathlist,divariopath,discalarpath, expD=expD,expI=expI,stationid=stationid,abstype=abstype, azimuth=azimuth,alpha=alpha,beta=beta,deltaD=deltaD,deltaI=deltaI,deltaF=deltaF)
+            if usgsdata == True:
+                if not azimuth == '':
+                    azimuth = float(azimuth)
+                    absstream = absoluteAnalysis(self.dipathlist,divariopath,discalarpath, expD=expD,expI=expI,stationid=stationid,abstype=abstype, azimuth=azimuth,alpha=alpha,beta=beta,deltaD=deltaD,deltaI=deltaI,deltaF=deltaF, datastream=self.plotstream)
+                else:
+                    absstream = absoluteAnalysis(self.dipathlist,divariopath,discalarpath, expD=expD,expI=expI,stationid=stationid,alpha=alpha,beta=beta,deltaD=deltaD,deltaI=deltaI,deltaF=deltaF, datastream=self.plotstream)
             else:
-                absstream = absoluteAnalysis(self.dipathlist,divariopath,discalarpath, expD=expD,expI=expI,stationid=stationid,alpha=alpha,beta=beta,deltaD=deltaD,deltaI=deltaI,deltaF=deltaF)
-
+                if not azimuth == '':
+                    azimuth = float(azimuth)
+                    absstream = absoluteAnalysis(self.dipathlist,divariopath,discalarpath, expD=expD,expI=expI,stationid=stationid,abstype=abstype, azimuth=azimuth,alpha=alpha,beta=beta,deltaD=deltaD,deltaI=deltaI,deltaF=deltaF)
+                else:
+                    absstream = absoluteAnalysis(self.dipathlist,divariopath,discalarpath, expD=expD,expI=expI,stationid=stationid,alpha=alpha,beta=beta,deltaD=deltaD,deltaI=deltaI,deltaF=deltaF)
             sys.stdout=prev_redir
             # only if more than one point is selected
             self.changeStatusbar("Ready")
@@ -5224,6 +5299,9 @@ Suite 330, Boston, MA  02111-1307  USA"""
                 #self.ActivateControls(self.plotstream)
                 self.OnInitialPlot(self.plotstream)
                 #self.plotoptlist.append(self.plotopt)
+                if not str(self.menu_p.abs_page.dilogTextCtrl.GetValue()) == '':
+                    self.menu_p.abs_page.ClearLogButton.Enable()
+                    self.menu_p.abs_page.SaveLogButton.Enable()
             else:
                 if absstream:
                     self.ActivateControls(self.plotstream)
@@ -5342,7 +5420,7 @@ Suite 330, Boston, MA  02111-1307  USA"""
     # ################
     # ------------------------------------------------------------------------------------------
 
-    """     
+    """
     def onConnectMQTTButton(self, event):
         # start a subscribe to client call
         success = True
@@ -5443,7 +5521,7 @@ Suite 330, Boston, MA  02111-1307  USA"""
             self.menu_p.com_page.logMsg(' - IP: {}'.format(martasaddress))
             self.menu_p.com_page.coverageTextCtrl.Enable()    # always
             self.menu_p.com_page.frequSlider.Enable()         # always
-    """     
+    """
 
     def onConnectMARCOSButton(self, event):
         # active if database is connected
@@ -5554,7 +5632,7 @@ Suite 330, Boston, MA  02111-1307  USA"""
 
             self.changeStatusbar("Scanning for MQTT broadcasts ... approx 20 sec")
 
-            
+
 
             loopcnt = 0
             success = True

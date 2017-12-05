@@ -49,6 +49,7 @@ from magpy.database import *
 from magpy.transfer import *
 
 import dateutil.parser as dparser
+import urllib2
 
 MAGPY_SUPPORTED_ABSOLUTES_FORMATS = ['MAGPYABS','MAGPYNEWABS','AUTODIF','JSONABS','UNKNOWN']
 ABSKEYLIST = ['time', 'hc', 'vc', 'res', 'f', 'mu', 'md', 'expectedmire', 'varx', 'vary', 'varz', 'varf', 'var1', 'var2']
@@ -152,6 +153,7 @@ class DILineStruct(object):
             headers['analysisdate'] = self.inputdate
 
         # The order needs to be changed according to the file list
+
         for i, elem in enumerate(self.time):
             if 4 <= i < 12 or 16 <= i < 25:
                 row = AbsoluteDIStruct()
@@ -313,14 +315,14 @@ class AbsoluteData(object):
         """
         DEFINITION:
             check whether variometer/scalar data is available for each time step
-            of DI data (within 2* samplingrate diff 
+            of DI data (within 2* samplingrate diff
         """
         # 1. Drop all data without value
         samprate = datastream.samplingrate()
         for key in keys:
             datastream = datastream._drop_nans(key)
         if not datastream.length()[0] > 1:
-            return False        
+            return False
         # 2. Get time column
         timea = np.asarray(datastream._get_column('time'))
         # 3. Get time column of DI data
@@ -792,7 +794,7 @@ class AbsoluteData(object):
         #     1. check Absolute file - no delta F -> use delta F from abs file
         #     2. check Scalar path
         #     3. check provided annual means
-        #     4. TODO basevalue is calculated at time t0 
+        #     4. TODO basevalue is calculated at time t0
         #        -> According to Juerges excel sheet only D is determined at t0
         #        -> I and F are averages within time range of DI meas
         # ###################################
@@ -1008,7 +1010,7 @@ class AbsoluteData(object):
         EZI3 = EZI3/2.
 
         i1list = [np.abs(elem) for elem in i1list]
-          
+
         #print "Collimation", S0I1, S0I2, S0I3, EZI1, EZI2, EZI3
         # Variometer correction to start time is missing for f value and inc ???
         inc = np.mean(i1list)*180.0/np.pi + deltaI
@@ -1204,7 +1206,7 @@ class AbsoluteData(object):
             - scalevalue:       (list of floats) scalevalues for each component (e.g. default = [1,1,1])
             - debugmode:        (bool) activate additional debug output -- !!!!!!! removed and replaced by loggin !!!!!
             - printresults      (bool) - if True print results to screen
-            - meantime          (bool) if true, values are recalculated to nearest 
+            - meantime          (bool) if true, values are recalculated to nearest
                                        horizontal measurement to average time
 
         USED BY:
@@ -1494,6 +1496,7 @@ def absoluteAnalysis(absdata, variodata, scalardata, **kwargs):
         - expI:         (float) expected Inclination - failure produced when I differs by more than expT deg
         - expT:         (float) expected value threshold - default 1 deg
         - movetoarchive:(string) define a local directory to store archived data (only works when reading files)
+        - datastream:   ((DataStream object) provides vario and scalar data as an alternative to reading files
     RETURNS:
         --
     EXAMPLE:
@@ -1546,6 +1549,7 @@ def absoluteAnalysis(absdata, variodata, scalardata, **kwargs):
     expD = kwargs.get('expD')
     meantime = kwargs.get('meantime')
     movetoarchive = kwargs.get('movetoarchive')
+    datastream = kwargs.get('datastream')
 
     if not outputformat:
         outputformat='idf'
@@ -1620,6 +1624,8 @@ def absoluteAnalysis(absdata, variodata, scalardata, **kwargs):
             #filelist.append(absdata)
             if "://" in absdata:
                 print("Found URL code - requires name of data set with date")
+                if "observation.json" in absdata:
+                    dataformat = 'JSONABS'
                 filelist.append(absdata)
                 movetoarchive = False # XXX No archiving function supported so far - will be done as soon as writing to files is available
             elif os.path.isfile(absdata):
@@ -1639,7 +1645,9 @@ def absoluteAnalysis(absdata, variodata, scalardata, **kwargs):
                 #print "Found List"
                 listlen = len(absdata)
                 for elem in absdata:
-                    if "://" in absdata:
+                    if "://" in elem:
+                        if "observation.json" in elem:
+                            dataformat = 'JSONABS'
                         print("Found URL code - requires name of data set with date")
                         filelist.append(elem)
                         movetoarchive = False # XXX No archiving function supported so far - will be done as soon as writing to files is available
@@ -1652,20 +1660,21 @@ def absoluteAnalysis(absdata, variodata, scalardata, **kwargs):
 
         for elem in filelist:
             head, tail = os.path.split(elem)
-            try:
-                date = dparser.parse(tail,fuzzy=True)
-                datelist.append(datetime.strftime(date,"%Y-%m-%d"))
-            except:
+            if "starttime=" in elem:
+                pos = elem.find("starttime=")+10
+                epos = elem.find('&',pos)
+                if epos == -1:
+                    epos = len(elem)
+                datelist += [elem[pos:epos]]
+            if len(datelist) == 0:
                 try:
-                    date = dparser.parse(tail[:19],fuzzy=True)
+                    date = dparser.parse(tail,fuzzy=True)
                     datelist.append(datetime.strftime(date,"%Y-%m-%d"))
                 except:
                     print("absoluteAnalysis: Found date problem in file: %s" % tail)
                     failinglist.append(elem)
 
         datelist = list(set(datelist))
-
-
     datetimelist = [datetime.strptime(elem,'%Y-%m-%d') for elem in datelist]
 
     empty = DataStream()
@@ -1673,12 +1682,51 @@ def absoluteAnalysis(absdata, variodata, scalardata, **kwargs):
         datetimelist = [elem for elem in datetimelist if elem >= empty._testtime(starttime)]
     if endtime:
         datetimelist = [elem for elem in datetimelist if elem <= empty._testtime(endtime)]
-
     if not len(datetimelist) > 0:
         print("absoluteAnalysis: No matching dates found - aborting")
         return
-
-
+    if datastream:
+        url = variodata
+        if 'sampling_period' in url:
+            pos = url.find("sampling_period=")+len("sampling_period=")
+            epos = url.find('&',pos)
+            if epos == -1:
+                epos = len(url)
+            deltat = int(url[pos:epos])
+        else:
+            deltat = 60
+        starttime = sorted(datetimelist)[0]
+        endtime = sorted(datetimelist)[-1] + timedelta(days=1)
+        streamstart=datastream.ndarray[KEYLIST.index('time')][0]
+        streamend=datastream.ndarray[KEYLIST.index('time')][-1]
+        streamstart = num2date(streamstart).replace(tzinfo=None)
+        streamend = num2date(streamend).replace(tzinfo=None)
+        if starttime < streamstart and streamstart-starttime > timedelta(seconds=deltat):
+            parsed = url.split('&')
+            parsed = [el for el in parsed if not "starttime=" in el and not "endtime=" in el]
+            parsed.append('starttime=' + datetime.strftime(starttime,"%Y-%m-%d"))
+            parsed.append('endtime=' + datetime.strftime(streamstart,"%Y-%m-%d"))
+            url = "&".join(parsed)
+            try:
+                tempstream = read(url)
+                datastream = joinStreams(tempstream,datastream)
+            except:
+                print('Unable to load USGS scalar and vario data from: ' + url)
+        if endtime > streamend and endtime-streamend > timedelta(seconds=deltat):
+            parsed = url.split('&')
+            parsed = [el for el in parsed if not "starttime=" in el and not "endtime=" in el]
+            parsed.append('starttime=' + datetime.strftime(streamend,"%Y-%m-%d"))
+            parsed.append('endtime=' + datetime.strftime(endtime,"%Y-%m-%d"))
+            url = "&".join(parsed)
+            try:
+                tempstream = read(url)
+                datastream = joinStreams(datastream,tempstream)
+            except:
+                print('Unable to load USGS scalar and vario data from: ' + url)
+        streamstart=datastream.ndarray[KEYLIST.index('time')][0]
+        streamend=datastream.ndarray[KEYLIST.index('time')][-1]
+        streamstart = num2date(streamstart).replace(tzinfo=None)
+        streamend = num2date(streamend).replace(tzinfo=None)
         # Please Note for pier information always the existing pier in the file is used
 
     # 2.2 Cycle through datetimelist
@@ -1699,14 +1747,30 @@ def absoluteAnalysis(absdata, variodata, scalardata, **kwargs):
         try:
             valalpha = ''
             valbeta = ''
-            variodbtest = variodata.split(',')
-            if len(variodbtest) > 1:
-                variostr = dbase.readDB(variodbtest[0],variodbtest[1],starttime=date,endtime=date+timedelta(days=1))
+            if not "elements=" in variodata:
+                variodbtest = variodata.split(',')
             else:
-                variostr = read(variodata,starttime=date,endtime=date+timedelta(days=1))
+                variodbtest = [variodata]
+            if datastream:
+                starttime = datastream.ndarray[KEYLIST.index('time')][0]
+                endtime = datastream.ndarray[KEYLIST.index('time')][-1]
+                starttime = num2date(starttime).replace(tzinfo=None)
+                endtime = num2date(endtime).replace(tzinfo=None)
+                if date+timedelta(days=1) > endtime:
+                    newarray = datastream._select_timerange(starttime=date, endtime=endtime)
+                else:
+                    newarray = datastream._select_timerange(starttime=date, endtime=date+timedelta(days=1))
+                variostr = DataStream([LineStruct()],datastream.header,newarray)
+            else:
+                if len(variodbtest) > 1:
+                    variostr = dbase.readDB(variodbtest[0],variodbtest[1],starttime=date,endtime=date+timedelta(days=1))
+                else:
+                    variostr = read(variodata,starttime=date,endtime=date+timedelta(days=1))
             print("Length of Variodata:", variostr.length()[0])
-            if not variostr.header.get('SensorID') == '':
-                 varioid = variostr.header.get('SensorID')
+            if not variostr.header.get('SensorID', '') == '':
+                varioid = variostr.header.get('SensorID')
+            elif not variostr.header.get('StationID', '') == '':
+                varioid = variostr.header.get('StationID')
             if db and not skipvariodb:
                 try:
                     vaflaglist = dbase.db2flaglist(db,variostr.header['SensorID'])
@@ -1774,7 +1838,7 @@ def absoluteAnalysis(absdata, variodata, scalardata, **kwargs):
                         print ("-- beta provided manually")
                 except:
                     print("Applying rotation parameters failed")
-              
+
             try:
                 variostr = variostr.remove_flagged()
                 print("Flagged records of variodata have been removed")
@@ -1790,12 +1854,12 @@ def absoluteAnalysis(absdata, variodata, scalardata, **kwargs):
                 valalpha = 0.0
             else:
                 valalpha = float(alpha)
-                print ("Rotating vector with manually provided alpha", valalpha) 
+                print ("Rotating vector with manually provided alpha", valalpha)
             if not beta:
                 valbeta = 0.0
             else:
                 valbeta = float(beta)
-                print ("Rotating vector with manually provided beta", valbeta) 
+                print ("Rotating vector with manually provided beta", valbeta)
             variostr =variostr.rotation(alpha=valalpha, beta=valbeta)
             #alpha = None
             #beta = None
@@ -1812,13 +1876,29 @@ def absoluteAnalysis(absdata, variodata, scalardata, **kwargs):
         #    deltaF = 0.0
         print("-----------------")
         try:
-            scalardbtest = scalardata.split(',')
-            if len(scalardbtest) > 1:
-                scalarstr = dbase.readDB(scalardbtest[0],scalardbtest[1],starttime=date,endtime=date+timedelta(days=1))
+            if not "elements=" in scalardata:
+                scalardbtest = scalardata.split(',')
             else:
-                scalarstr = read(scalardata,starttime=date,endtime=date+timedelta(days=1))
-            if not scalarstr.header.get('SensorID') == '':
-                 scalarid = scalarstr.header.get('SensorID')
+                scalardbtest = [scalardata]
+            if datastream:
+                starttime = datastream.ndarray[KEYLIST.index('time')][0]
+                endtime = datastream.ndarray[KEYLIST.index('time')][-1]
+                starttime = num2date(starttime).replace(tzinfo=None)
+                endtime = num2date(endtime).replace(tzinfo=None)
+                if date+timedelta(days=1) > endtime:
+                    newarray = datastream._select_timerange(starttime=date, endtime=endtime)
+                else:
+                    newarray = datastream._select_timerange(starttime=date, endtime=date+timedelta(days=1))
+                scalarstr = DataStream([LineStruct()],datastream.header,newarray)
+            else:
+                if len(scalardbtest) > 1:
+                    scalarstr = dbase.readDB(scalardbtest[0],scalardbtest[1],starttime=date,endtime=date+timedelta(days=1))
+                else:
+                    scalarstr = read(scalardata,starttime=date,endtime=date+timedelta(days=1))
+            if not scalarstr.header.get('SensorID', '') == '':
+                scalarid = scalarstr.header.get('SensorID')
+            elif not scalarstr.header.get('StationID', '') == '':
+                scalarid = scalarstr.header.get('StationID')
             # Check for the presence of f or df
             fcol = KEYLIST.index('f')
             dfcol = KEYLIST.index('df')
@@ -1884,7 +1964,6 @@ def absoluteAnalysis(absdata, variodata, scalardata, **kwargs):
                 difiles = [di for di in filelist]
 
             #print ("Here", difiles, filelist)
-
             if len(difiles) > 0:
                 for elem in difiles:
                     # Get stationid and pier from name (if not provided)
@@ -1905,11 +1984,16 @@ def absoluteAnalysis(absdata, variodata, scalardata, **kwargs):
                     #    print("Please note that any offsets defined in DataDeltaValues")
                     #    print("of the database have been applied already.")
                     #    print("Data from %s, pier %s: manually defined are deltaF=%.2f" % (stationid, pier, deltaF))
-                    absst = absRead(elem,azimuth=azimuth,pier=pier,output='DIListStruct')
+                    if dataformat == 'JSONABS':
+                        try:
+                            absst = absRead(elem,dataformat=dataformat,azimuth=azimuth,pier=pier,output='DIListStruct')
+                        except:
+                            print("Unable to read DI data for " + date.strftime("%Y-%m-%d"))
+                    else:
+                        absst = absRead(elem,azimuth=azimuth,pier=pier,output='DIListStruct')
                     #print ("LENGTH:",len(absst))
                     #print ("ABSST:",absst)
-
-                    try: 
+                    try:
                         if not len(absst) > 1: # Manual
                             stream = absst[0].getAbsDIStruct()
                             abslist.append(absst)
@@ -1959,7 +2043,7 @@ def absoluteAnalysis(absdata, variodata, scalardata, **kwargs):
                 stream = absst.getAbsDIStruct()
             # if usestep not given and AutoDIF measurement found
             #print ("Identified pier in file:", stream[0])
-    
+
             if stream[0].person == 'AutoDIF' and not usestep:
                 usestep = 2
 
@@ -1986,7 +2070,7 @@ def absoluteAnalysis(absdata, variodata, scalardata, **kwargs):
                     try:
                         val= dbselect(db,'DeltaDictionary','PIERS','PierID like "{}"'.format(pier))[0]
                         deltainputs = val.split(',')
-                        lastval = deltainputs[-1] 
+                        lastval = deltainputs[-1]
                         deltaD = float(lastval.split('_')[2])
                     except:
                         deltaD = 0.0
@@ -2014,7 +2098,7 @@ def absoluteAnalysis(absdata, variodata, scalardata, **kwargs):
                     elif not alpha == None:
                         alphavaluetobeadded = alpha
                     if not result.str4 == '':
-                        result.str4 = result.str4 + ","    
+                        result.str4 = result.str4 + ","
                     result.str4 += "alpha_" + str(alphavaluetobeadded)
                 #print("absolutes", result.str4, valbeta, beta)
                 if valbeta != 0 or beta:
@@ -2025,7 +2109,7 @@ def absoluteAnalysis(absdata, variodata, scalardata, **kwargs):
                     elif not beta == 0:
                         betavaluetobeadded = beta
                     if not result.str4 == '':
-                        result.str4 = result.str4 + ","    
+                        result.str4 = result.str4 + ","
                     result.str4 += "beta_" + str(betavaluetobeadded)
                 #print("absolutes", result.str4)
             except:
@@ -2101,7 +2185,8 @@ def absoluteAnalysis(absdata, variodata, scalardata, **kwargs):
 
     #print "outfile"
     #print resultstream.ndarray
-
+    if varioid == scalarid:
+        stationid = varioid
     # 3.1 Header information
     # --------------------
     resultstream.header['StationID'] = stationid
@@ -2113,7 +2198,7 @@ def absoluteAnalysis(absdata, variodata, scalardata, **kwargs):
     resultstream.header['unit-col-x'] = 'deg'
     resultstream.header['col-y'] = 'd'
     resultstream.header['unit-col-y'] = 'deg'
-    resultstream.header['col-z'] = 'f'
+    resultstream.header['col-z'] = 'z'
     resultstream.header['unit-col-z'] = 'nT'
     resultstream.header['col-f'] = 'f'
     resultstream.header['unit-col-f'] = 'nT'
@@ -2313,5 +2398,3 @@ if __name__ == '__main__':
     print("Starting a test of the Absolutes program:")
     #msg = PyMagLog()
     ### TODO: To be implemented
-
-
