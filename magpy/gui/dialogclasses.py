@@ -2179,7 +2179,7 @@ class AnalysisBaselineDialog(wx.Dialog):
         # Add the controls to the sizers:
         contlst=[(self.absstreamLabel, noOptions)]
         contlst.append((self.absstreamComboBox, expandOption))
-        contlst.append((self.fitlistRadioBox, noOptions))
+        #contlst.append((self.fitlistRadioBox, noOptions))
         contlst.append((self.parameterLabel, noOptions))
         contlst.append((self.parameterTextCtrl, expandOption))
         contlst.append((self.parameterButton, dict(flag=wx.ALIGN_CENTER)))
@@ -2203,11 +2203,14 @@ class AnalysisBaselineDialog(wx.Dialog):
 
     def OnParameter(self, e):
         # open fit dlg
-        idx = int(self.absstreamComboBox.GetValue().split(':')[0])
+        streamidx = int(self.absstreamComboBox.GetValue().split(':')[0])
+        for idx in range(len(self.dictlst)):
+            if self.dictlst[idx]['streamidx'] == streamidx:
+                index = idx
 
         dlg = AnalysisFitDialog(None, title='Analysis: Fit parameter', options=self.options, stream = self.plotstream, shownkeylist=self.shownkeylist, keylist=self.keylist)
-        startdate=self.dictlst[idx].get('startdate')
-        enddate=self.dictlst[idx].get('enddate')
+        startdate=self.dictlst[index].get('startdate')
+        enddate=self.dictlst[index].get('enddate')
         starttime = num2date(startdate).strftime('%X')
         endtime = num2date(enddate).strftime('%X')
         dlg.startFitDatePicker.SetValue(self._pydate2wxdate(num2date(startdate)))
