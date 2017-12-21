@@ -1575,6 +1575,14 @@ CALLED BY:
         else:
             return result
 
+    def _get_variance(self, key):
+        if not key in KEYLIST[:16]:
+            raise ValueError("Column key not valid")
+        key_ind = KEYLIST.index(key)
+        if len(self.ndarray[0]) > 0:
+            result = np.var(self.ndarray[key_ind].astype(float))
+            return result
+
     def amplitude(self,key):
         """
         DESCRIPTION:
@@ -9284,22 +9292,22 @@ CALLED BY:
         format_type='IAGA'
         ------------------
            *General:
-            The meta information provided within the header of each IAGA file is automatically 
-            generated from the header information provided along with the following keys 
+            The meta information provided within the header of each IAGA file is automatically
+            generated from the header information provided along with the following keys
             (define by stream.header[key]):
             - Obligatory: StationInstitution, StationName, StationIAGAcode (or StationID),
                         DataElevation, DataSensorOrientation, DataDigitalSampling
-            - Optional:   SensorID, DataPublicationDate, DataComments, DataConversion, StationK9, 
-                          SecondarySensorID (F sensor), StationMeans (used for 'Approx H') 
+            - Optional:   SensorID, DataPublicationDate, DataComments, DataConversion, StationK9,
+                          SecondarySensorID (F sensor), StationMeans (used for 'Approx H')
             - Header input "IntervalType": can either be provided by using key 'DataIntervalType'
                           or is automatically created from DataSamplingRate.
-                          Filter details as contained in DataSamplingFilter are added to the 
+                          Filter details as contained in DataSamplingFilter are added to the
                           commentary part
             - Header input "Geodetic Longitude and Latitude":
                           - defined with keys 'DataAcquisitionLatitude','DataAcquisitionLongitude'
                           - if an EPSG code is provided in key 'DataLocationReference'
                             this code is used to convert Lat and Long into the WGS84 system
-                            e.g. stream.header['DataLocationReference'] = 'M34, EPSG: ' 
+                            e.g. stream.header['DataLocationReference'] = 'M34, EPSG: '
 
            *Specific parameters:
             - useg          (Bool) if F is available, and G not yet caluclated: calculate G (deltaF) and
@@ -9324,7 +9332,7 @@ CALLED BY:
 
            *Specific parameters:
             - addflags      (BOOL) add flags to IMAGCDF output if True
-                    
+
         format_type='BLV'
         ------------------
            *Specific parameters:
@@ -12519,7 +12527,7 @@ def test_time(time):
 def LeapTime(t):
     """
     converts strings to datetime, considering leap seconds
-    """ 
+    """
     nofrag, frag = t.split('.')
     nofrag_dt = time.strptime(nofrag, "%Y-%m-%dT%H:%M:%S")
     ts = datetime.fromtimestamp(time.mktime(nofrag_dt))
