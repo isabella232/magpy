@@ -1956,11 +1956,9 @@ Suite 330, Boston, MA  02111-1307  USA"""
         if dlg.ShowModal() == wx.ID_OK:
             elements = dlg.elements
             end = dlg.endtime
-            endlabel = dlg.endlabel
             samplelimit = dlg.samplelimit
             samplingperiod = dlg.samplingperiod
             start = dlg.starttime
-            startlabel = dlg.startlabel
             url = dlg.url
             if start < end:
                 self.changeStatusbar("Loading data ... be patient")
@@ -1969,9 +1967,9 @@ Suite 330, Boston, MA  02111-1307  USA"""
                         stream = read(url)
                     else:
                         stream = readWebServiceData(path_or_url=url,
-                                startlabel=startlabel, starttime=start,
-                                endlabel=endlabel, endtime=end,
-                                elements=elements, sampling_period=samplingperiod,
+                                starttime=start, endtime=end,
+                                elements=elements,
+                                sampling_period=samplingperiod,
                                 samplelimit=samplelimit)
                     success = True
                 except:
