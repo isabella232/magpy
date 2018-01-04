@@ -9284,22 +9284,22 @@ CALLED BY:
         format_type='IAGA'
         ------------------
            *General:
-            The meta information provided within the header of each IAGA file is automatically 
-            generated from the header information provided along with the following keys 
+            The meta information provided within the header of each IAGA file is automatically
+            generated from the header information provided along with the following keys
             (define by stream.header[key]):
             - Obligatory: StationInstitution, StationName, StationIAGAcode (or StationID),
                         DataElevation, DataSensorOrientation, DataDigitalSampling
-            - Optional:   SensorID, DataPublicationDate, DataComments, DataConversion, StationK9, 
-                          SecondarySensorID (F sensor), StationMeans (used for 'Approx H') 
+            - Optional:   SensorID, DataPublicationDate, DataComments, DataConversion, StationK9,
+                          SecondarySensorID (F sensor), StationMeans (used for 'Approx H')
             - Header input "IntervalType": can either be provided by using key 'DataIntervalType'
                           or is automatically created from DataSamplingRate.
-                          Filter details as contained in DataSamplingFilter are added to the 
+                          Filter details as contained in DataSamplingFilter are added to the
                           commentary part
             - Header input "Geodetic Longitude and Latitude":
                           - defined with keys 'DataAcquisitionLatitude','DataAcquisitionLongitude'
                           - if an EPSG code is provided in key 'DataLocationReference'
                             this code is used to convert Lat and Long into the WGS84 system
-                            e.g. stream.header['DataLocationReference'] = 'M34, EPSG: ' 
+                            e.g. stream.header['DataLocationReference'] = 'M34, EPSG: '
 
            *Specific parameters:
             - useg          (Bool) if F is available, and G not yet caluclated: calculate G (deltaF) and
@@ -9324,7 +9324,7 @@ CALLED BY:
 
            *Specific parameters:
             - addflags      (BOOL) add flags to IMAGCDF output if True
-                    
+
         format_type='BLV'
         ------------------
            *Specific parameters:
@@ -10419,7 +10419,75 @@ def _read(filename, dataformat=None, headonly=False, **kwargs):
 
     return stream
 
-def saveflags(mylist=None,path=None, overwrite=False):
+def readWebServiceData(path_or_url, starttime, endtime, elements,
+        sampling_period, samplelimit):
+    """Get timeseries data from a webservice.
+        Can be used to circumvent sample limits for data requested from a
+        web service.
+        Parameters
+        ----------
+        parth_or_url: str
+            url for the request.
+        starttime : str
+            time of first sample in timeseries.
+        endtime : str
+            time of last sample in timeseries.
+        elements : array_like
+            list of elements to load.
+        sampling_period : str
+            data interval.
+        samplelimit :  int
+            limit on samples requested.
+        Returns
+        -------
+        DataStream
+            stream containing requested timeseries.
+    """
+    failed = []
+    start = datetime.strptime(starttime, "%Y-%m-%dT%H:%M:%SZ")
+    end = datetime.strptime(endtime, "%Y-%m-%dT%H:%M:%SZ")
+    if len(elements) > 1:
+        elements = len(elements.split(","))
+    else:
+        elements = 1
+    if int(sampling_period) == 60:
+        hourly = 60
+    else:
+        hourly = 3600
+    limit = samplelimit
+    deltadays = limit / (24 * elements * hourly)
+    deltasecs = int(deltadays * 86400)
+    stream = DataStream()
+    time = start
+    while time < end:
+        starttime = time
+        time = time + timedelta(seconds=deltasecs)
+        if time > end:
+            endtime = end
+        else:
+            endtime = time
+        parsed = path_or_url.split('&')
+        parsed = [el for el in parsed if not 'starttime=' in el and not 'endtime=' in el]
+        parsed.append('starttime=' + datetime.strftime(starttime,"%Y-%m-%dT%H:%M:%SZ"))
+        parsed.append('endtime=' + datetime.strftime(endtime,"%Y-%m-%dT%H:%M:%SZ"))
+        path_or_url = "&".join(parsed)
+        try:
+            tempstream = read(path_or_url)
+            stream = joinStreams(stream,tempstream)
+        except:
+            failed += [path_or_url]
+            print('Failed to load: ' + path_or_url)
+    # Retry failed
+    for fail in failed:
+        try:
+            tempstream = read(fail)
+            stream = joinStreams(stream, tempstream)
+        except:
+            print('Failed second attempt to load: ' + fail)
+
+    return stream
+
+def saveflags(mylist=None,path=None):
     """
     DEFINITION:
         Save list e.g. flaglist to file using pickle.
@@ -12519,7 +12587,7 @@ def test_time(time):
 def LeapTime(t):
     """
     converts strings to datetime, considering leap seconds
-    """ 
+    """
     nofrag, frag = t.split('.')
     nofrag_dt = time.strptime(nofrag, "%Y-%m-%dT%H:%M:%S")
     ts = datetime.fromtimestamp(time.mktime(nofrag_dt))

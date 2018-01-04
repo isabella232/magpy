@@ -143,7 +143,18 @@ def saveini(optionsdict): #dbname=None, user=None, passwd=None, host=None, dirna
         optionsdict['fitdegree'] = '5'
     if optionsdict.get('fitknotstep','') == '':
         optionsdict['fitknotstep'] = '0.3'
-
+    if optionsdict.get('edgeid','') == '':
+        optionsdict['edgeid'] = ['BOU', 'BDT', 'TST', 'BRW', 'BRT', 'BSL',
+                            'CMO', 'CMT', 'DED', 'DHT', 'FRD', 'FRN', 'GUA',
+                            'HON', 'NEW', 'SHU', 'SIT', 'SJG', 'TUC', 'USGS',
+                            'BLC', 'BRD', 'CBB', 'EUA', 'FCC', 'IQA', 'MEA',
+                            'OTT', 'RES', 'SNK', 'STJ', 'VIC', 'YKC', 'HAD',
+                            'HER', 'KAK']
+    if optionsdict.get('edgetype','') == '':
+        optionsdict['edgetype'] = ['variation', 'adjusted', 'quasi-definitive',
+                                'definitive']
+    if optionsdict.get('edgeformat','') == '':
+        optionsdict['edgeformat'] = ['iaga2002']
     initpath = os.path.join(normalpath,'.magpyguiini')
 
     pwd = base64.b64encode(passwd)
@@ -838,11 +849,13 @@ class MainFrame(wx.Frame):
         self.FileMenu.AppendItem(self.DirOpen)
         self.WebOpen = wx.MenuItem(self.FileMenu, 103, "Open &URL...\tCtrl+U", "Get data from the internet", wx.ITEM_NORMAL)
         self.FileMenu.AppendItem(self.WebOpen)
-        self.DBOpen = wx.MenuItem(self.FileMenu, 104, "&Select DB table...\tCtrl+S", "Select a MySQL database", wx.ITEM_NORMAL)
+        self.WebServiceOpen = wx.MenuItem(self.FileMenu, 104, "Open Connection to Web Service...\tCtrl+G", "Get data from a web service", wx.ITEM_NORMAL)
+        self.FileMenu.AppendItem(self.WebServiceOpen)
+        self.DBOpen = wx.MenuItem(self.FileMenu, 105, "&Select DB table...\tCtrl+S", "Select a MySQL database", wx.ITEM_NORMAL)
         self.FileMenu.AppendItem(self.DBOpen)
         self.DBOpen.Enable(False)
         self.FileMenu.AppendSeparator()
-        self.ExportData = wx.MenuItem(self.FileMenu, 105, "&Export data...\tCtrl+E", "Export data to a file", wx.ITEM_NORMAL)
+        self.ExportData = wx.MenuItem(self.FileMenu, 106, "&Export data...\tCtrl+E", "Export data to a file", wx.ITEM_NORMAL)
         self.FileMenu.AppendItem(self.ExportData)
         self.ExportData.Enable(False)
         self.FileMenu.AppendSeparator()
@@ -914,6 +927,7 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.OnOpenDir, self.DirOpen)
         self.Bind(wx.EVT_MENU, self.OnOpenFile, self.FileOpen)
         self.Bind(wx.EVT_MENU, self.OnOpenURL, self.WebOpen)
+        self.Bind(wx.EVT_MENU, self.OnOpenWebService, self.WebServiceOpen)
         self.Bind(wx.EVT_MENU, self.OnOpenDB, self.DBOpen)
         self.Bind(wx.EVT_MENU, self.OnExportData, self.ExportData)
         self.Bind(wx.EVT_MENU, self.OnFileQuit, self.FileQuitItem)
@@ -1894,7 +1908,6 @@ Suite 330, Boston, MA  02111-1307  USA"""
         bookmarks = self.options.get('bookmarks',[])
         if bookmarks == []:
             bookmarks = ['http://www.intermagnet.org/test/ws/?id=BOU','ftp://ftp.nmh.ac.uk/wdc/obsdata/hourval/single_year/2011/fur2011.wdc','ftp://user:passwd@www.zamg.ac.at/data/magnetism/wic/variation/WIC20160627pmin.min','http://www.conrad-observatory.at/zamg/index.php/downloads-en/category/13-definite2015?download=66:wic-2015-0000-pt1m-4','http://www-app3.gfz-potsdam.de/kp_index/qlyymm.tab']
-
         dlg = OpenWebAddressDialog(None, title='Open URL', favorites=bookmarks)
         if dlg.ShowModal() == wx.ID_OK:
             url = dlg.urlTextCtrl.GetValue()
@@ -1920,6 +1933,7 @@ Suite 330, Boston, MA  02111-1307  USA"""
             except:
                 pass
         dlg.Destroy()
+
 
         if success:
             self.menu_p.rep_page.logMsg('{}: found {} data points'.format(url,len(stream.ndarray[0])))
@@ -1948,6 +1962,61 @@ Suite 330, Boston, MA  02111-1307  USA"""
             dlg.ShowModal()
             self.changeStatusbar("Loading url failed ... Ready")
             dlg.Destroy()
+
+    def OnOpenWebService(self, event):
+        stream = DataStream()
+        success = False
+        bookmarks = self.options.get('bookmarks',[])
+        ids = self.options.get('edgeid',[])
+        types = self.options.get('edgetype',[])
+        formats = self.options.get('edgeformat',[])
+        dlg = ConnectWebServiceDialog(None, title='Create and Open URL for a Web Service', ids=ids, types=types, formats=formats)
+        if dlg.ShowModal() == wx.ID_OK:
+            elements = dlg.elements
+            end = dlg.endtime
+            samplelimit = dlg.samplelimit
+            samplingperiod = dlg.samplingperiod
+            start = dlg.starttime
+            url = dlg.url
+            if start < end:
+                self.changeStatusbar("Loading data ... be patient")
+                try:
+                    if samplelimit == None:
+                        stream = read(url)
+                    else:
+                        stream = readWebServiceData(path_or_url=url,
+                                starttime=start, endtime=end,
+                                elements=elements,
+                                sampling_period=samplingperiod,
+                                samplelimit=samplelimit)
+                    success = True
+                except:
+                    success = False
+                if success:
+                    self.menu_p.rep_page.logMsg('{}: found {} data points'.format(url,len(stream.ndarray[0])))
+                    if self.InitialRead(stream):
+                        self.OnInitialPlot(self.plotstream)
+                        self.menu_p.str_page.symbolRadioBox.Enable()
+                    self.changeStatusbar("Ready")
+                else:
+                    dlg = wx.MessageDialog(self, "Could not access data!\n"
+                        "Please check the web service usage to ensure proper parameter use. "
+                        "Other possible issues may be due to internet connection"
+                        " or internal server errors.\n",
+                        "OpenWebServiceConnection", wx.OK|wx.ICON_INFORMATION)
+                    dlg.ShowModal()
+                    self.changeStatusbar("Loading from web service failed ... Ready")
+                    dlg.Destroy()
+            else:
+                msg = wx.MessageDialog(self, "Invalid time range!\n"
+                    "The end time occurs before the start time.\n",
+                    "ConnectEdge", wx.OK|wx.ICON_INFORMATION)
+                msg.ShowModal()
+                self.changeStatusbar("Loading from web service failed ... Ready")
+                msg.Destroy()
+
+            dlg.Destroy()
+
 
 
     def OnOpenDB(self, event):
