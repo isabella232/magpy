@@ -389,7 +389,7 @@ def plotStreams(streamlist,variables,padding=None,specialdict={},errorbars=None,
         plot.title("New title.")
         plot.savefig("newfig.png")
     '''
-    
+
     logger = logging.getLogger(__name__+".plotStreams")
 
     # Preselect only numerical values
@@ -1060,9 +1060,9 @@ def plotEMD(stream,key,verbose=False,plottitle=None,
         - plottitle:    (str) Title to place at top of plot.
         - sratio:       (float) Decomposition percentage. Determines how curve
                         is split. Default = 0.25.
-        - stackvals:    (list) provide a list of three intergers defining which components 
-                        are to be stacked together. e.g. [2,8,14] means: 2 to 7 define the 
-                        high frequ part, 8 to 14 the mid frequ, >14 the low frequ 
+        - stackvals:    (list) provide a list of three intergers defining which components
+                        are to be stacked together. e.g. [2,8,14] means: 2 to 7 define the
+                        high frequ part, 8 to 14 the mid frequ, >14 the low frequ
         - verbose:      (bool) Print results. Default False.
 
     RETURNS:
@@ -1308,9 +1308,9 @@ def plotNormStreams(streamlist, key, normalize=True, normalizet=False,
             plt.show()
 
 
-def plotPS(stream,key,debugmode=False,outfile=None,noshow=False,
-        returndata=False,freqlevel=None,marks={},fmt=None,
-        axes=None,plottitle=None,**kwargs):
+def plotPS(stream, key, debugmode=False, outfile=None, noshow=False,
+        returndata=False, freqlevel=None, marks={}, fmt=None,
+        axes=None, plottitle=None, gui=False, **kwargs):
     """
     DEFINITION:
         Calculate the power spectrum following the numpy fft example
@@ -1325,6 +1325,7 @@ def plotPS(stream,key,debugmode=False,outfile=None,noshow=False,
         - debugmode:    (bool) Variable to show steps
         - fmt:          (str) Format of outfile, e.g. "png"
         - freqlevel:    (float) print noise level at that frequency.
+        - gui:          (bool) True if the method is called by the xmagpy GUI
         - marks:        (dict) Contains list of marks to add, e.g:
                         {'here',1}
         - outfile:      (str) Filename to save plot to
@@ -1425,11 +1426,13 @@ def plotPS(stream,key,debugmode=False,outfile=None,noshow=False,
         plt.close()
         return freqm, asdm
     elif show:
-        plt.show()      # show() should only ever be called once. Use draw() in between!
+        if gui == True:
+            ax.set_title(key.upper())
+            fig.show()
+        else:
+            plt.show()
     else:
         return fig
-    
-    plt.close()
 
 
 def plotSatMag(mag_stream,sat_stream,keys,outfile=None,plottype='discontinuous',
@@ -1643,9 +1646,10 @@ def plotSatMag(mag_stream,sat_stream,keys,outfile=None,plottype='discontinuous',
 
 
 def plotSpectrogram(stream, keys, NFFT=1024, detrend=mlab.detrend_none,
-             window=mlab.window_hanning, noverlap=900,
-             cmap=cm.Accent, cbar=False, xextent=None, pad_to=None, sides='default',
-             scale_by_freq=None, minfreq = None, maxfreq = None, plottitle=False, **kwargs):
+        window=mlab.window_hanning, noverlap=900,
+        cmap=cm.Accent, cbar=False, xextent=None, pad_to=None,
+        sides='default', scale_by_freq=None, minfreq = None, maxfreq = None,
+        plottitle=False, gui=False, **kwargs):
     """
     DEFINITION:
         Creates a spectrogram plot of selected keys.
@@ -1656,24 +1660,25 @@ def plotSpectrogram(stream, keys, NFFT=1024, detrend=mlab.detrend_none,
         - stream:       (DataStream object) Stream to analyse
         - keys:         (list) Keys to analyse
     Kwargs:
-        - per_lap:      (?) ?
-        - wlen:         (?) ?
-        - log:          (bool) ?
-        - outfile:      (str) Filename to save plot to
-        - fmt:          (str) Format of outfile, e.g. 'png'
         - axes:         (?) ?
-        - dbscale:      (?) ?
-        - mult:         (?) ?
-        - cmap:         (cm.) Colormap object
         - cbar:         (bool) Plot colorbar alongside spectrogram
-        - zorder:       (?) ?
+        - cmap:         (cm.) Colormap object
+        - dbscale:      (?) ?
+        - fmt:          (str) Format of outfile, e.g. 'png'
+        - gui           (bool) True if the method is called by the xmagpy GUI
+        - log:          (bool) ?
+        - mult:         (?) ?
+        - outfile:      (str) Filename to save plot to
+        - per_lap:      (?) ?
         - plottitle:    (?) ?
         - samp_rate_multiplicator:
-                        (float=24*3600) Change the frequency relative to one day
-                        sampling rate given as days -> multiplied by x to create Hz,
-                        Default 24, which means 1/3600 Hz
+                        (float=24*3600) Change the frequency relative to one
+                        day sampling rate given as days -> multiplied by x to
+                        create Hz, Default 24, which means 1/3600 Hz
         - show:         (?) ?
         - sphinx:       (?) ?
+        - wlen:         (?) ?
+        - zorder:       (?) ?
 
     RETURNS:
         - plot:         (matplotlib plot) A plot of the spectrogram.
@@ -1709,23 +1714,27 @@ def plotSpectrogram(stream, keys, NFFT=1024, detrend=mlab.detrend_none,
                 maxfreq = 1
         ax1=subplot(211)
         plt.plot_date(t,val,'-')
-        ax1.set_ylabel('{} [{}]'.format(stream.header.get('col-'+key,''),stream.header.get('unit-col-'+key,'')))
+        ax1.set_ylabel('{} [{}]'.format(stream.header.get('col-'+key,''),
+                stream.header.get('unit-col-'+key,'')))
         ax1.set_xlabel('Time (UTC)')
         ax2=subplot(212)
         ax2.set_yscale('log')
         #NFFT = 1024
-        Pxx, freqs, bins, im = magpySpecgram(val, NFFT=NFFT, Fs=Fs, noverlap=noverlap,
-                                cmap=cmap, minfreq = minfreq, maxfreq = maxfreq)
-        
+        Pxx, freqs, bins, im = magpySpecgram(val, NFFT=NFFT, Fs=Fs,
+                noverlap=noverlap, cmap=cmap, minfreq=minfreq,
+                maxfreq=maxfreq)
+
         if plottitle:
             ax1.set_title(plottitle)
-            
+
         if cbar:
             fig = plt.gcf()
             axes = fig.axes
             fig.colorbar(im, ax=np.ravel(axes).tolist())
-
-        plt.show()
+        if gui == True:
+            plt.show(block=False)
+        else:
+            plt.show()
 
     """
     if axes:
@@ -2263,7 +2272,7 @@ def _plot(data,savedpi=80,grid=True,gridcolor=gridcolor,noshow=False,
                                 connstyle = "angle,angleA=0,angleB=90,rad=10"
                                 ax.annotate(r'%s' % (flags[1][cnt0]),
                                         xy=(t[cnt0], y[cnt0]),
-                                        xycoords='data', xytext=xytext, size=10, 
+                                        xycoords='data', xytext=xytext, size=10,
                                         textcoords='offset points',
                                         bbox=dict(boxstyle="round", fc="0.9"),
                                         arrowprops=dict(arrowstyle="->",
@@ -2494,13 +2503,13 @@ def _confinex(ax, tmax, tmin, timeunit):
     else:
         ax.get_xaxis().set_major_formatter(matplotlib.dates.DateFormatter('%Y'))
         timeunit = '[Year]'
-        
+
 
 def _extract_data_for_PSD(stream, key):
     """
     Prepares data for power spectral density evaluation.
     """
-    
+
     if len(stream.ndarray[0]) > 0:
         pos = KEYLIST.index(key)
         t = stream.ndarray[0]
@@ -2523,7 +2532,7 @@ def _extract_data_for_PSD(stream, key):
 
     t_new = np.asarray(t_new)
     val_new = np.asarray(val_new)
-    
+
     return t_new, val_new, nfft
 
 
@@ -2743,4 +2752,3 @@ if __name__ == '__main__':
     print()
     print("Good-bye!")
     print("----------------------------------------------------------")
-
