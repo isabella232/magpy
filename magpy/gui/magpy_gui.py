@@ -34,6 +34,7 @@ from magpy.gui.reportpage import *
 from magpy.gui.developpage import *  # remove this
 from magpy.gui.analysispage import *
 from magpy.gui.monitorpage import *
+from magpy.gui.statisticspage import StatisticsPage
 import glob, os, pickle, base64
 import pylab
 import thread, time
@@ -761,26 +762,30 @@ class MenuPanel(scrolled.ScrolledPanel):
     def __init__(self, *args, **kwds):
         scrolled.ScrolledPanel.__init__(self, *args, **kwds)
         # Create pages on MenuPanel
-        nb = wx.Notebook(self,-1)
-        self.str_page = StreamPage(nb)
-        self.flg_page = FlaggingPage(nb)
-        self.met_page = MetaPage(nb)
-        self.ana_page = AnalysisPage(nb)
-        self.abs_page = AbsolutePage(nb)
-        self.rep_page = ReportPage(nb)
-        self.com_page = MonitorPage(nb)
-        nb.AddPage(self.str_page, "Stream")
-        nb.AddPage(self.flg_page, "Flagging")
-        nb.AddPage(self.met_page, "Meta")
-        nb.AddPage(self.ana_page, "Analysis")
-        nb.AddPage(self.abs_page, "DI")
-        nb.AddPage(self.rep_page, "Report")
-        nb.AddPage(self.com_page, "Monitor")
+        self.nb = wx.Notebook(self,-1)
+        self.str_page = StreamPage(self.nb)
+        self.flg_page = FlaggingPage(self.nb)
+        self.met_page = MetaPage(self.nb)
+        self.ana_page = AnalysisPage(self.nb)
+        self.abs_page = AbsolutePage(self.nb)
+        self.rep_page = ReportPage(self.nb)
+        self.com_page = MonitorPage(self.nb)
+        self.stats_page = StatisticsPage(self.nb)
+        self.nb.AddPage(self.str_page, "Stream")
+        self.nb.AddPage(self.flg_page, "Flagging")
+        self.nb.AddPage(self.met_page, "Meta")
+        self.nb.AddPage(self.ana_page, "Analysis")
+        self.nb.AddPage(self.stats_page, "Statistics")
+        self.nb.AddPage(self.abs_page, "DI")
+        self.nb.AddPage(self.rep_page, "Report")
+        self.nb.AddPage(self.com_page, "Monitor")
 
         sizer = wx.BoxSizer()
-        sizer.Add(nb, 1, wx.EXPAND)
+        sizer.Add(self.nb, 1, wx.EXPAND)
         self.SetSizer(sizer)
         self.SetupScrolling()
+        self.nb.RemovePage(4)
+        self.stats_page.Hide()
 
 
 class MainFrame(wx.Frame):
@@ -791,6 +796,7 @@ class MainFrame(wx.Frame):
         self.sp = wx.SplitterWindow(self, -1, style=wx.SP_3D|wx.SP_BORDER)
         self.plot_p = PlotPanel(self.sp,-1)
         self.menu_p = MenuPanel(self.sp,-1)
+        self.sp.SplitVertically(self.plot_p, self.menu_p, 800)
         pub.subscribe(self.changeStatusbar, 'changeStatusbar')
 
         # The Status Bar
@@ -1012,6 +1018,7 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_BUTTON, self.onDeltafButton, self.menu_p.ana_page.deltafButton)
         self.Bind(wx.EVT_BUTTON, self.onPowerButton, self.menu_p.ana_page.powerButton)
         self.Bind(wx.EVT_BUTTON, self.onSpectrumButton, self.menu_p.ana_page.spectrumButton)
+        self.Bind(wx.EVT_BUTTON, self.onStatsButton, self.menu_p.ana_page.statsButton)
         #        DI Page
         # --------------------------
         self.Bind(wx.EVT_BUTTON, self.onLoadDI, self.menu_p.abs_page.loadDIButton)
@@ -1046,8 +1053,6 @@ class MainFrame(wx.Frame):
         # --------------------------
         self.DeactivateAllControls()
 
-        self.sp.SplitVertically(self.plot_p,self.menu_p,800)
-
     def __set_properties(self):
         self.SetTitle("MagPy")
         self.SetSize((1200, 800))
@@ -1059,7 +1064,6 @@ class MainFrame(wx.Frame):
             self.StatusBar.SetStatusText(StatusBar_fields[i], i)
         self.menu_p.SetMinSize((400, 750))
         self.plot_p.SetMinSize((100, 100))
-
 
     def InitPlotParameter(self, keylist = None):
         # Kwargs for plotting
@@ -1215,6 +1219,7 @@ class MainFrame(wx.Frame):
         self.menu_p.ana_page.deltafButton.Disable()        # if xyzf available
         self.menu_p.ana_page.powerButton.Disable()         # always
         self.menu_p.ana_page.spectrumButton.Disable()      # always
+        self.menu_p.ana_page.statsButton.Disable()         # always
         #self.menu_p.ana_page.mergeButton.Disable()         # if len(self.streamlist) > 1
         #self.menu_p.ana_page.subtractButton.Disable()      # if len(self.streamlist) > 1
         #self.menu_p.ana_page.stackButton.Disable()         # if len(self.streamlist) > 1
@@ -1409,7 +1414,7 @@ class MainFrame(wx.Frame):
         self.menu_p.ana_page.smoothButton.Enable()        # always
         self.menu_p.ana_page.powerButton.Enable()         # always
         self.menu_p.ana_page.spectrumButton.Enable()      # always
-
+        self.menu_p.ana_page.statsButton.Enable()      # always
         # ----------------------------------------
         # absolutes page
         self.menu_p.abs_page.loadUSGSButton.Enable()      # always
@@ -1646,7 +1651,6 @@ class MainFrame(wx.Frame):
             read stream, extract columns with values and display up to three of them by default
             executes guiPlot then
         """
-
         self.changeStatusbar("Plotting...")
 
         self.InitPlotParameter()
@@ -1678,6 +1682,11 @@ class MainFrame(wx.Frame):
                     checkbox.SetLabel(colname)
             else:
                 checkbox.SetValue(False)
+        # Connect callback to the initial plot
+        for idx, ax in enumerate(self.plot_p.axlist):
+            ax.callbacks.connect('xlim_changed', self.updateStatistics)
+            ax.callbacks.connect('ylim_changed', self.updateStatistics)
+        self.updateStatistics()
         self.changeStatusbar("Ready")
 
 
@@ -1717,6 +1726,11 @@ class MainFrame(wx.Frame):
                     checkbox.SetLabel(colname)
             else:
                 checkbox.SetValue(False)
+        # Connect callback to the new plot
+        for idx, ax in enumerate(self.plot_p.axlist):
+            ax.callbacks.connect('xlim_changed', self.updateStatistics)
+            ax.callbacks.connect('ylim_changed', self.updateStatistics)
+        self.updateStatistics()
         self.changeStatusbar("Ready")
 
 
@@ -2431,6 +2445,17 @@ Suite 330, Boston, MA  02111-1307  USA"""
 
     def changeStatusbar(self,msg):
         self.SetStatusText(msg)
+
+    def updateStatistics(self, event=None):
+        """
+        DESCRIPTION
+             Updates and sets the statistics if the statistics page
+             is displayed
+        """
+        if self.menu_p.ana_page.statsButton.GetLabel() == 'Hide Statistics':
+            self.menu_p.stats_page.setStatistics(keys=self.shownkeylist,
+                    stream=self.plotstream.copy(),
+                    xlimits=self.plot_p.xlimits)
 
     def UpdateCursorStatus(self, event):
         """Motion event for displaying values under cursor."""
@@ -4167,7 +4192,36 @@ Suite 330, Boston, MA  02111-1307  USA"""
         import magpy.mpplot as mp
         mp.plotSpectrogram(self.plotstream, comp)
 
-
+    def onStatsButton(self, event):
+        """
+        DESCRIPTION
+             Creates/Destroys the statistics page int menu panel notebook
+             and sets the statistics
+        """
+        status = self.menu_p.ana_page.statsButton.GetLabel()
+        if status == 'Show Statistics':
+            # Remove last pages
+            self.menu_p.nb.RemovePage(4)
+            self.menu_p.abs_page.Hide()
+            self.menu_p.nb.RemovePage(4)
+            self.menu_p.rep_page.Hide()
+            self.menu_p.nb.RemovePage(4)
+            self.menu_p.com_page.Hide()
+            # Add new page next to the Analysis page
+            self.menu_p.nb.AddPage(self.menu_p.stats_page, "Statistics",
+                    True)
+            # Add back the last pages
+            self.menu_p.nb.AddPage(self.menu_p.abs_page, "DI")
+            self.menu_p.nb.AddPage(self.menu_p.rep_page, "Report")
+            self.menu_p.nb.AddPage(self.menu_p.com_page, "Monitor")
+            self.menu_p.stats_page.setStatistics(keys=self.shownkeylist,
+                    stream=self.plotstream.copy(),
+                    xlimits=self.plot_p.xlimits)
+            self.menu_p.ana_page.statsButton.SetLabel("Hide Statistics")
+        if status == 'Hide Statistics':
+            self.menu_p.nb.RemovePage(4)
+            self.menu_p.stats_page.Hide()
+            self.menu_p.ana_page.statsButton.SetLabel("Show Statistics")
     # ------------------------------------------------------------------------------------------
     # ################
     # Stream page functions

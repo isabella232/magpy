@@ -46,6 +46,8 @@ class AnalysisPage(wx.Panel):
         self.head5Label = wx.StaticText(self, label="Frequency range:")
         #self.head5Label = wx.StaticText(self, label="Multiple streams:")
         # merge, subtract, stack
+        # display continuous statistics
+        self.head6Label = wx.StaticText(self, label="Continuous statistics:")
 
         # 1 Line
         self.derivativeButton = wx.Button(self,-1,"Derivative",size=(160,30))
@@ -69,6 +71,8 @@ class AnalysisPage(wx.Panel):
         # 5 Line
         self.powerButton = wx.Button(self,-1,"Power",size=(160,30))
         self.spectrumButton = wx.Button(self,-1,"Spectrum",size=(160,30))
+        # 6 Line
+        self.statsButton = wx.Button(self,-1,"Show Statistics",size=(160,30))
 
         # 5 Line
         #self.mergeButton = wx.Button(self,-1,"Merge",size=(160,30))
@@ -137,7 +141,13 @@ class AnalysisPage(wx.Panel):
                  (self.head5Label, noOptions),
                   emptySpace,
                  (self.powerButton, dict(flag=wx.ALIGN_CENTER)),
-                 (self.spectrumButton, dict(flag=wx.ALIGN_CENTER))]:
+                 (self.spectrumButton, dict(flag=wx.ALIGN_CENTER)),
+                 emptySpace,
+                 emptySpace,
+                 (self.head6Label, noOptions),
+                 emptySpace,
+                 (self.statsButton, dict(flag=wx.ALIGN_CENTER)),
+                 emptySpace]:
             gridSizer.Add(control, **options)
 
         for control, options in \

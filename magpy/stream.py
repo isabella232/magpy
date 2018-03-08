@@ -1575,6 +1575,14 @@ CALLED BY:
         else:
             return result
 
+    def _get_variance(self, key):
+        if not key in KEYLIST[:16]:
+            raise ValueError("Column key not valid")
+        key_ind = KEYLIST.index(key)
+        if len(self.ndarray[0]) > 0:
+            result = np.nanvar(self.ndarray[key_ind].astype(float))
+            return result
+
     def amplitude(self,key):
         """
         DESCRIPTION:
